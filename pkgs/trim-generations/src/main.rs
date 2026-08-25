@@ -63,6 +63,8 @@ fn main() -> anyhow::Result<()> {
     print_policy(&policy);
     println!();
     print_table(&gens, &plan);
+    println!();
+    trim(&args.profile, &plan, args.apply)?;
     Ok(())
 }
 
@@ -135,4 +137,61 @@ fn print_table(gens: &Generations, decisions: &[Decision]) {
     }
 }
 
-fn trim(remove: &[Generation]) {}
+/// Delete generations a plan marked for removal.
+fn trim(profile: &Path, decisions: &[Decision], apply: bool) -> anyhow::Result<()> {
+    let ids_to_remove: Vec<_> = decisions
+        .iter()
+        .filter(|d| matches!(d.action, Action::Remove(_)))
+        .map(|d| d.id)
+        .collect();
+
+    if ids_to_remove.is_empty() {
+        println!("nothing to trim");
+        return Ok(());
+    }
+
+    // Build the command arguments once; reuse them for both display and execution.
+    let mut args: Vec<String> = vec![
+        "nix-env".into(),
+        "--profile".into(),
+        profile.display().to_string(),
+        "--delete-generations".into(),
+    ];
+    args.extend(ids_to_remove.iter().map(ToString::to_string));
+
+    // Run the command
+    println!("{}", gray(format!("> {}", args.join(" "))));
+    if !apply {
+        println!("dry run: not executing (pass --apply to trim)");
+        return Ok(());
+    }
+
+    let output = std::process::Command::new(&args[0])
+        .args(&args[1..])
+        .output()
+        .context("failed to run nix-env")?;
+
+    if !output.status.success() {
+        bail!(
+            "failed to delete generations: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    println!("deleted {} generation(s)", ids_to_remove.len());
+    Ok(())
+}
+
+fn gray(s: impl std::fmt::Display) -> String {
+    if console_supports_color() {
+        format!("\x1b[90m{s}\x1b[0m")
+    } else {
+        s.to_string()
+    }
+}
+
+fn console_supports_color() -> bool {
+    use std::io::IsTerminal;
+    std::io::stdout().is_terminal()
+        && std::env::var_os("NO_COLOR").is_none()
+        && std::env::var("TERM").map_or(true, |t| t != "dumb")
+}
