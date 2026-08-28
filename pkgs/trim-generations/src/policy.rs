@@ -67,25 +67,24 @@ impl Policy {
         for rule in &self.rules {
             // Example: duration=1h, repeat=3, max_age=2h
             //
-            //                            floor(now)
-            //         -2h       -1h        0h       +1h        // time offsets from floor(now)
+            //                          bucket(now)
+            //         -2h       -1h        0h       +1h        // time offsets from bucket(now)
             // past <---|----v----|---------|----v----|--->     // timeline
             //             cutoff               now
             //
             //               [______eligible____)               // rules only work on gens in this range
-            //          [___W2___)[___W1___)[___W0___)          // Windows [start, end)
-            for (start, end) in rule.windows(now)?.take(rule.repeat as usize) {
-                // Stop if the window is older than the cutoff (start <= end <= cutoff)
+            //          [___W2___)[___W1___)[___W0___)          // Buckets [start, end)
+            for (start, end) in rule.past_buckets_from(now)?.take(rule.repeat as usize) {
+                // Stop if the timespan is older than the cutoff (start <= end <= cutoff)
                 if end <= cutoff {
                     break;
                 }
 
-                // Keep the newest generation in the window, if any.
+                // Keep the newest generation in the timespan, if any.
                 if let Some(newest) = eligible
                     .iter()
                     .copied()
-                    .filter(|g| g.created >= start && g.created < end)
-                    .last()
+                    .rfind(|g| g.created >= start && g.created < end)
                 {
                     reasons_keep
                         .entry(newest.id)
@@ -148,22 +147,20 @@ impl FromStr for RetentionRule {
 }
 
 impl RetentionRule {
-    /// The unit-aligned windows of width `duration`, newest first, going back indefinitely.
-    /// `floor` is the start of the unit containing `time`; the newest window starts at `floor`
-    /// (so it includes the current partial unit), and window `i` is
-    /// `[floor - i*duration, floor + (1 - i)*duration)`. Callers bound the walk
-    /// (e.g. `.take(repeat)` or a `max_age` cutoff).
-    pub fn windows(
+    /// Create an infinite iterator of timespan buckets of length `duration` walking from `now`
+    /// into the past. The first bucket is the one containing `now`; because `now` can sit
+    /// anywhere within a bucket, that first bucket often extends into the future (its end may
+    /// be after `now`). Every subsequent bucket lies entirely in the past.
+    pub fn past_buckets_from(
         &self,
-        time: NaiveDateTime,
+        now: NaiveDateTime,
     ) -> anyhow::Result<impl Iterator<Item = (NaiveDateTime, NaiveDateTime)>> {
         let duration = self.duration;
-        let floor = duration
-            .floor_to_unit(time)
-            .context("unable to align to unit")?;
-        let first_end = duration.after(floor)?;
+
+        let mut start = duration.start_of_bucket_containing(now)?;
+
+        let first_end = duration.after(start)?;
         Ok(gen move {
-            let mut start = floor;
             let mut end = first_end;
             loop {
                 yield (start, end);
@@ -214,7 +211,7 @@ pub enum Action {
 pub enum KeepReason {
     /// Kept because it is among the newest N old generations.
     KeepLastN(u32),
-    /// Kept because it is the newest generation in one of this rule's windows.
+    /// Kept because it is the newest generation in one of this rule's buckets.
     Rule(RetentionRule),
 }
 
@@ -252,8 +249,9 @@ impl std::fmt::Display for RemoveReason {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::{NaiveDate, NaiveDateTime};
+
+    use super::*;
 
     /// Build a `NaiveDateTime` from its parts.
     fn date(y: i32, mo: u32, d: u32, h: u32, mi: u32, s: u32) -> NaiveDateTime {
@@ -327,17 +325,33 @@ mod tests {
         }
 
         #[test]
-        fn windows() {
+        fn buckets() {
             let rule: RetentionRule = "1d*1".parse().unwrap();
             let now = date(2026, 8, 24, 12, 0, 0);
-            let windows: Vec<_> = rule.windows(now).unwrap().take(3).collect();
+            let buckets: Vec<_> = rule.past_buckets_from(now).unwrap().take(3).collect();
             assert_eq!(
-                windows,
+                buckets,
                 vec![
                     (date(2026, 8, 24, 0, 0, 0), date(2026, 8, 25, 0, 0, 0)),
                     (date(2026, 8, 23, 0, 0, 0), date(2026, 8, 24, 0, 0, 0)),
                     (date(2026, 8, 22, 0, 0, 0), date(2026, 8, 23, 0, 0, 0)),
                 ]
+            );
+        }
+
+        #[test]
+        fn buckets_are_stable_across_runs() {
+            let rule: RetentionRule = "2w*5".parse().unwrap();
+            let t1 = date(2026, 8, 24, 12, 0, 0); // Monday
+            let t2 = t1 + chrono::Duration::days(7); // next Monday
+            let w1: Vec<_> = rule.past_buckets_from(t1).unwrap().take(4).collect();
+            let w2: Vec<_> = rule.past_buckets_from(t2).unwrap().take(4).collect();
+            // All buckets except the newest are identical between the two runs.
+            assert_eq!(w1[..3], w2[1..]);
+            // The newest bucket starts at its fixed position on the timeline (CE-anchored for this week).
+            assert_eq!(
+                w1[0],
+                (date(2026, 8, 17, 0, 0, 0), date(2026, 8, 31, 0, 0, 0))
             );
         }
     }
@@ -410,7 +424,7 @@ mod tests {
                     &[],
                 ),
                 (
-                    "no rules: keeps the newest keep_last only, in-window gens are removed too",
+                    "no rules: keeps the newest keep_last only, other gens are removed too",
                     date(2026, 8, 24, 12, 0, 0), // cutoff for "2y" = 2024-08-24 12:00
                     "2y",
                     2,
@@ -431,7 +445,7 @@ mod tests {
                     gens(&[
                         (1, date(2026, 7, 1, 0, 0, 0)),  // older than cutoff
                         (2, date(2026, 7, 20, 0, 0, 0)), // older than cutoff
-                        (3, date(2026, 8, 1, 0, 0, 0)),  // within window
+                        (3, date(2026, 8, 1, 0, 0, 0)),  // within bucket
                     ]),
                     &[1, 2, 3],
                 ),
@@ -453,7 +467,7 @@ mod tests {
             let gens = gens(&[
                 (1, date(2026, 8, 10, 0, 0, 0)), // older than cutoff -> Remove(OlderThanMaxAge)
                 (2, date(2026, 8, 20, 0, 0, 0)), // within max age, no rule -> Remove(NoRule)
-                (3, date(2026, 8, 24, 9, 0, 0)), // keep_last + newest in the 1d window
+                (3, date(2026, 8, 24, 9, 0, 0)), // keep_last + newest in the 1d bucket
             ]);
             let decisions = policy.plan(now, &gens).unwrap();
             assert_eq!(decisions[0].id, GenerationId::new(1));
@@ -472,7 +486,7 @@ mod tests {
         }
 
         #[test]
-        fn rule_keeps_newest_per_window() {
+        fn rule_keeps_newest_per_bucket() {
             let now = date(2026, 8, 24, 12, 0, 0);
             let policy = Policy::new(
                 "30d".parse().unwrap(),
@@ -486,16 +500,16 @@ mod tests {
                 (4, date(2026, 8, 23, 10, 0, 0)),
                 (5, date(2026, 8, 24, 9, 0, 0)),
             ]);
-            // windows: [Aug 24, Aug 25) and [Aug 23, Aug 24) -> newest of each: 5 and 4
+            // buckets: [Aug 24, Aug 25) and [Aug 23, Aug 24) -> newest of each: 5 and 4
             let keep = kept_ids(&policy, now, &gens);
             assert_eq!(keep, vec![GenerationId::new(4), GenerationId::new(5)]);
         }
 
         #[test]
-        fn rule_window_satisfied_by_keep_last() {
+        fn rule_bucket_satisfied_by_keep_last() {
             let now = date(2026, 8, 24, 12, 0, 0);
-            // keep_last already keeps the newest; the rule's window is satisfied by it and must
-            // not add the older gen of the same window.
+            // keep_last already keeps the newest; the rule's bucket is satisfied by it and must
+            // not add the older gen of the same bucket.
             let policy = Policy::new(
                 "30d".parse().unwrap(),
                 1,
@@ -511,7 +525,7 @@ mod tests {
         #[test]
         fn rules_ignore_gens_older_than_max_age() {
             let now = date(2026, 8, 24, 12, 0, 0);
-            // cutoff for "5d" = 2026-08-19 12:00; gen 1 is below it, in a window the rule examines.
+            // cutoff for "5d" = 2026-08-19 12:00; gen 1 is below it, in a bucket the rule examines.
             let policy = Policy::new("5d".parse().unwrap(), 0, ["1d*6".parse().unwrap()].to_vec());
             let gens = gens(&[
                 (1, date(2026, 8, 19, 10, 0, 0)), // older than cutoff -> never kept
@@ -525,16 +539,52 @@ mod tests {
         }
 
         #[test]
-        fn empty_windows_are_skipped() {
+        fn empty_buckets_are_skipped() {
             let now = date(2026, 8, 24, 12, 0, 0);
             let policy = Policy::new(
                 "30d".parse().unwrap(),
                 0,
                 ["1d*2".parse().unwrap()].to_vec(),
             );
-            // gen 1 falls in neither examined window -> both windows empty, nothing kept
+            // gen 1 falls in neither examined bucket -> both buckets empty, nothing kept
             let gens = gens(&[(1, date(2026, 8, 20, 10, 0, 0))]);
             assert_eq!(kept_ids(&policy, now, &gens), vec![]);
+        }
+
+        #[test]
+        fn multi_rule_plan_is_idempotent_across_runs() {
+            let policy = Policy::new(
+                "2y".parse().unwrap(),
+                0,
+                [
+                    "1d*7".parse().unwrap(),
+                    "2w*5".parse().unwrap(),
+                    "1M*12".parse().unwrap(),
+                ]
+                .to_vec(),
+            );
+            let gens = gens(&[
+                (1, date(2026, 5, 10, 0, 0, 0)),
+                (2, date(2026, 6, 10, 0, 0, 0)),
+                (3, date(2026, 7, 10, 0, 0, 0)),
+                (4, date(2026, 8, 10, 0, 0, 0)),
+                (5, date(2026, 8, 20, 0, 0, 0)),
+            ]);
+
+            let start = date(2026, 8, 24, 12, 0, 0);
+            let expected = kept_ids(&policy, start, &gens);
+
+            let end = date(2026, 10, 12, 0, 0, 0);
+            let mut now = start;
+            while now < end {
+                let kept = kept_ids(&policy, now, &gens);
+                assert_eq!(
+                    kept, expected,
+                    "planning the same generations at {now} must keep the same set as at \
+                     {start}: expected {expected:?}, got {kept:?}"
+                );
+                now += chrono::Duration::hours(1);
+            }
         }
     }
 }

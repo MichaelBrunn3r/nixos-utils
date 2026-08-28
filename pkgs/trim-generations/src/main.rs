@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use clap::Parser;
-
 use duration::NominalDuration;
 use generation::Generations;
 

@@ -49,20 +49,35 @@ impl NominalDuration {
         .with_context(|| format!("duration {self:?} overflows chrono's date range"))
     }
 
-    /// Truncate a timestamp to the start of this duration's unit (e.g. days -> 00:00, weeks -> Monday).
-    pub fn floor_to_unit(&self, time: NaiveDateTime) -> Option<NaiveDateTime> {
-        match self.unit {
-            Unit::Hour => time.with_minute(0)?.with_second(0)?.with_nanosecond(0),
-            Unit::Day => time.date().and_hms_opt(0, 0, 0),
-            Unit::Week => {
-                let since_monday = u64::from(time.weekday().num_days_from_monday());
-                time.date()
-                    .checked_sub_days(chrono::Days::new(since_monday))?
-                    .and_hms_opt(0, 0, 0)
+    /// Returns the start of the timespan bucket (specific to this duration) that contains `time`.
+    ///
+    /// A timespan bucket is a contiguous interval as long as this
+    /// duration, e.g. 2 weeks. Time is partitioned into buckets anchored to the Common Era
+    /// epoch (day 0). Because of the anchoring, buckets are independent of
+    /// invocation time: a given timestamp always falls into the same bucket, no matter when
+    /// this code is executed.
+    pub fn start_of_bucket_containing(&self, time: NaiveDateTime) -> anyhow::Result<NaiveDateTime> {
+        let period_start = self
+            .unit
+            .start_of_period_containing(time)
+            .context("unable to compute the period start")?;
+        let unit_index: i64 = match self.unit {
+            Unit::Hour => {
+                i64::from(period_start.date().num_days_from_ce()) * 24
+                    + i64::from(period_start.hour())
             }
-            Unit::Month => time.date().with_day(1)?.and_hms_opt(0, 0, 0),
-            Unit::Year => NaiveDate::from_ymd_opt(time.year(), 1, 1)?.and_hms_opt(0, 0, 0),
+            Unit::Day => i64::from(period_start.date().num_days_from_ce()),
+            Unit::Week => i64::from(period_start.date().num_days_from_ce()).div_euclid(7),
+            Unit::Month => i64::from(period_start.year()) * 12 + i64::from(period_start.month()),
+            Unit::Year => i64::from(period_start.year()),
+        };
+        let offset = unit_index.rem_euclid(i64::from(self.value)) as u32;
+        NominalDuration {
+            unit: self.unit,
+            value: offset,
         }
+        .before(period_start)
+        .with_context(|| format!("unable to subtract {offset} units from {period_start}"))
     }
 }
 
@@ -106,6 +121,26 @@ pub enum Unit {
     Week,
     Month,
     Year,
+}
+
+impl Unit {
+    /// Returns the start of the calendar period (specific to this unit) that contains `time`.
+    ///
+    /// Hour -> HH:00, Day -> 00:00, Week -> Monday 00:00, Month -> 1st of the month 00:00, Year -> Jan 1 00:00
+    fn start_of_period_containing(&self, time: NaiveDateTime) -> Option<NaiveDateTime> {
+        match self {
+            Unit::Hour => time.with_minute(0)?.with_second(0)?.with_nanosecond(0),
+            Unit::Day => time.date().and_hms_opt(0, 0, 0),
+            Unit::Week => {
+                let since_monday = u64::from(time.weekday().num_days_from_monday());
+                time.date()
+                    .checked_sub_days(chrono::Days::new(since_monday))?
+                    .and_hms_opt(0, 0, 0)
+            }
+            Unit::Month => time.date().with_day(1)?.and_hms_opt(0, 0, 0),
+            Unit::Year => NaiveDate::from_ymd_opt(time.year(), 1, 1)?.and_hms_opt(0, 0, 0),
+        }
+    }
 }
 
 impl std::fmt::Display for Unit {
