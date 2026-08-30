@@ -1,8 +1,4 @@
-{
-  pkgs,
-  inputs,
-  ...
-}: {
+{pkgs, ...}: {
   languages.rust = {
     enable = true;
     channel = "nightly";
@@ -10,6 +6,7 @@
   };
 
   packages = with pkgs; [
+    git
   ];
 
   git-hooks.hooks = {

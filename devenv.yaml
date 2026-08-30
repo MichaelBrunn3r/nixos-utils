@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
 inputs:
+  # Import ./flake.nix
+  flake:
+    url: path:.
   nixpkgs:
-    url: github:NixOS/nixpkgs/nixos-unstable
+    follows: flake/nixpkgs # Use the same nixpkgs as the flake
+  rust-overlay:
+    follows: flake/rust-overlay # Use the same overlay as the flake
   git-hooks:
     url: github:cachix/git-hooks.nix
-    inputs:
-      nixpkgs:
-        follows: nixpkgs
-  rust-overlay:
-    url: github:oxalica/rust-overlay
     inputs:
       nixpkgs:
         follows: nixpkgs
