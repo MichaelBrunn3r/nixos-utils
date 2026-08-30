@@ -1,5 +1,6 @@
 {
   trim-generations, # built by the flake with a nightly (rust-overlay) toolchain
+  pkgs,
   ...
 }: {
   config,
@@ -66,6 +67,7 @@ in {
 
     systemd.services.trim-generations = {
       description = "Trim Nix profile generations";
+      path = [pkgs.nix]; # trim-generation calls nix-env -> must be on the path
       serviceConfig = {
         Type = "oneshot";
         User = cfg.user;

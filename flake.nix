@@ -44,6 +44,8 @@
       inherit trim-generations; # nix build .#trim-generations
       default = trim-generations; # nix build .
     };
-    nixosModules.trim-generations = import ./pkgs/trim-generations/mod.nix {inherit trim-generations;};
+    nixosModules.trim-generations = import ./pkgs/trim-generations/mod.nix {
+      inherit trim-generations pkgs;
+    };
   };
 }
