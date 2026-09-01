@@ -17,11 +17,21 @@
     ...
   }: let
     system = "x86_64-linux";
+    lib = nixpkgs.lib;
     pkgs = (nixpkgs.legacyPackages.${system}).extend rust-overlay.overlays.default;
 
     #region Crane setup
     craneLib = (crane.mkLib pkgs).overrideToolchain pkgs.rust-bin.nightly.latest.minimal;
-    craneWorkspaceRoot = craneLib.cleanCargoSource (craneLib.path ./.);
+    # Crane filters sources to create a clean dependency cache. In addition to
+    # the default file filter, keep every file inside each crate's `src/`
+    # (pkgs/**/src/**). Otherwise snapshots and assets would be stripped.
+    craneWorkspaceRoot = lib.cleanSourceWith {
+      src = craneLib.path ./.;
+      filter = path: type:
+        craneLib.filterCargoSources path type
+        || (builtins.match ".*/pkgs/[^/]+/src/.*" (toString path) != null);
+      name = "source";
+    };
     craneWorkspaceDeps = craneLib.buildDepsOnly {
       src = craneWorkspaceRoot;
       pname = "nixos-utils";
@@ -45,7 +55,9 @@
   in {
     packages.${system} = {
       inherit trim-generations nanofetch; # nix build .#<package>
-      default = trim-generations; # nix build .
+    };
+    checks.${system} = {
+      inherit trim-generations nanofetch; # Build all crates and run their tests
     };
     nixosModules.trim-generations = import ./pkgs/trim-generations/mod.nix {
       inherit trim-generations pkgs;
