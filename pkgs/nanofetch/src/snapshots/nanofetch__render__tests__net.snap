@@ -1,0 +1,11 @@
+---
+source: pkgs/nanofetch/src/render.rs
+expression: "&render_net(&data_with_net(), false)"
+---
+Net
+Interface        MAC               ↓↑ GiB     
+enp3s0           aa:bb:cc:dd:ee:ff 6.50 / 2.00
+├─192.168.1.5                                 
+└─fe80::1                                     
+wlp0             88:d8:2e:99:cf:55 1.00 / 0.00
+└─192.168.178.40

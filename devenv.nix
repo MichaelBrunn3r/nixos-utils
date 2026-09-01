@@ -6,7 +6,10 @@
   };
 
   packages = with pkgs; [
+    cargo-insta
     git
+    perf
+    samply
   ];
 
   git-hooks.hooks = {

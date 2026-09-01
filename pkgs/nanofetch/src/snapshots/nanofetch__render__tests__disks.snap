@@ -1,0 +1,10 @@
+---
+source: pkgs/nanofetch/src/render.rs
+expression: "&render_disks(&data_with_disks(), false)"
+---
+Disks
+Path             Usage                   Type                              Mount
+/dev/nvme0n1     931.5 GiB               NVMe SSD (WD_BLACK SN850X 1000GB)      
+├─/dev/nvme0n1p1 121.0 / 511.0 MiB (24%) vfat                              /boot
+└─/dev/nvme0n1p2 550.5 / 898.7 GiB (61%) ext4                              /    
+/dev/sda         232.9 GiB               USB SSD (250GB Card)

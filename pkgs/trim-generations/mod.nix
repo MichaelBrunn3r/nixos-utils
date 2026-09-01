@@ -63,8 +63,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-    environment.systemPackages = [cfg.package];
-
     systemd.services.trim-generations = {
       description = "Trim Nix profile generations";
       path = [pkgs.nix]; # trim-generation calls nix-env -> must be on the path

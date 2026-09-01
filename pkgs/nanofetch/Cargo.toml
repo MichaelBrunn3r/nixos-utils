@@ -1,0 +1,24 @@
+[package]
+name = "nanofetch"
+version = "0.1.0"
+edition = "2024"
+description = "Gather system facts and render them as a table"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tabled = { version = "0.21.0", default-features = false, features = [
+    "std",
+    "ansi",
+] }
+
+[dev-dependencies]
+insta = "1.48.0"
