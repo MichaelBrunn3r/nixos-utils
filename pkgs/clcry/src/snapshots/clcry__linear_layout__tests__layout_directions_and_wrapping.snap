@@ -1,0 +1,42 @@
+---
+source: pkgs/clcry/src/linear_layout.rs
+expression: render(layout)
+---
+Wrapping row
++---------------+
+|Item0Item1Item2|
+|Item3Item4Item5|
+|Item6Item7Item8|
+|Item9          |
++---------------+
+Wrapping column
++--------------------+
+|Item0Item3Item6Item9|
+|Item1Item4Item7     |
+|Item2Item5Item8     |
++--------------------+
+Non-wrapping row
++--------------------------------+
+|Item0Item1Item2Item3            |
+|Item0 Item1 Item2 Item3         |
+|Item0    Item1    Item2    Item3|
++--------------------------------+
+Non-wrapping column
++---------------+
+|Item0Item0Item0|
+|Item1          |
+|Item2Item1     |
+|Item3          |
+|     Item2     |
+|          Item1|
+|     Item3     |
+|               |
+|               |
+|               |
+|          Item2|
+|               |
+|               |
+|               |
+|               |
+|          Item3|
++---------------+

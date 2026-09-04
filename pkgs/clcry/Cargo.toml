@@ -1,0 +1,13 @@
+[package]
+name = "clcry"
+version = "0.1.0"
+edition = "2024"
+description = "A tiny terminal layout/render library: measure a view tree, then paint it into a styled buffer"
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+insta.workspace = true

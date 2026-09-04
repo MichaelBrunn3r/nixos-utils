@@ -1,0 +1,37 @@
+---
+source: pkgs/clcry/src/linear_layout.rs
+expression: render(layout)
+---
+Row start
++-------------+
+|Item0Item1   |
++-------------+
+Row center
++-------------+
+| Item0Item1  |
++-------------+
+Row end
++-------------+
+|   Item0Item1|
++-------------+
+Column start
++-----+
+|Item0|
+|Item1|
+|     |
+|     |
++-----+
+Column center
++-----+
+|     |
+|Item0|
+|Item1|
+|     |
++-----+
+Column end
++-----+
+|     |
+|     |
+|Item0|
+|Item1|
++-----+

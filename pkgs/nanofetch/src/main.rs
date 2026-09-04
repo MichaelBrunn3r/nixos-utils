@@ -1,17 +1,18 @@
+mod app;
 mod data_sources;
 mod gather;
+#[cfg(test)]
+#[allow(dead_code)]
 mod render;
 
-use std::io::IsTerminal;
 use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Parser;
 
 use crate::gather::gather;
-use crate::render::render;
 
-/// Gather system facts and render them as a table.
+/// Gather system facts and render them.
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
@@ -36,9 +37,7 @@ fn main() -> anyhow::Result<()> {
             serde_json::to_string(&data).context("failed to serialize data")?
         );
     } else {
-        // Respect NO_COLOR (https://no-color.org)
-        let colored = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-        println!("{}", render(&data, colored));
+        println!("{}", app::render(&data));
     }
     Ok(())
 }

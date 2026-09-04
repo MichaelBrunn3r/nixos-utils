@@ -19,6 +19,8 @@ tabled = { version = "0.21.0", default-features = false, features = [
     "std",
     "ansi",
 ] }
+terminal_size = "0.4.4"
+clcry = { path = "../clcry" }
 
 [dev-dependencies]
-insta = "1.48.0"
+insta.workspace = true

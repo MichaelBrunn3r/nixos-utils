@@ -1,0 +1,59 @@
+---
+source: pkgs/clcry/src/frame.rs
+expression: render(layout)
+---
+Border
++-----+
+|hello|
++-----+
+Border+Margin
++-----------+
+|           |
+|           |
+|  +-----+  |
+|  |hello|  |
+|  +-----+  |
+|           |
+|           |
++-----------+
+Border+Padding
++-----------+
+|+---------+|
+||         ||
+||         ||
+||  hello  ||
+||         ||
+||         ||
+|+---------+|
++-----------+
+Border+Margin+Padding
++-----------+
+|           |
+| +-------+ |
+| |       | |
+| | hello | |
+| |       | |
+| +-------+ |
+|           |
++-----------+
+Max width & height = margin + border + padding + content
++----------+
+|          |
+| +------+ |
+| |      | |
+| | 0123 | |
+| | abcd | |
+| | klmn | |
+| | uvwx | |
+| |      | |
+| +------+ |
+|          |
++----------+
+Oversized insets leave no child space
++-----+
+|     |
+|     |
+|     |
+|     |
+|     |
++-----+

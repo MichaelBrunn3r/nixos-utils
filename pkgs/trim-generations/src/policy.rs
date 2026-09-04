@@ -401,6 +401,7 @@ mod tests {
         }
 
         #[test]
+        #[allow(clippy::type_complexity)]
         fn selects_gens_to_keep() {
             let cases: [(&str, NaiveDateTime, &str, u32, Generations, &[u32]); 4] = [
                 (
