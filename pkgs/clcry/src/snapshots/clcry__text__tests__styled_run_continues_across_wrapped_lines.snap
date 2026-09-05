@@ -1,0 +1,6 @@
+---
+source: pkgs/clcry/src/text.rs
+expression: buffer.to_ansi()
+---
+The [31mquick[0m
+[31m brown[0m

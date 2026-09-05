@@ -1,4 +1,4 @@
-use crate::buffer::{Buffer, Style};
+use crate::buffer::{Buffer, CellStyle};
 use crate::style::ViewStyle;
 use crate::view::{Constraints, Rect, Size, View};
 
@@ -8,8 +8,8 @@ const GLYPH: char = '■';
 /// A horizontal progress bar that fills the width offered by its parent.
 pub struct ProgressBar {
     progress: f64,
-    filled_style: Style,
-    empty_style: Style,
+    filled_style: CellStyle,
+    empty_style: CellStyle,
     view_style: ViewStyle,
     bounds: Option<Rect>,
 }
@@ -20,8 +20,8 @@ impl ProgressBar {
     pub fn new() -> Self {
         Self {
             progress: 0.0,
-            filled_style: Style::default(),
-            empty_style: Style::default(),
+            filled_style: CellStyle::default(),
+            empty_style: CellStyle::default(),
             view_style: ViewStyle::new(),
             bounds: None,
         }
@@ -36,14 +36,14 @@ impl ProgressBar {
 
     /// Sets the style used for completed cells.
     #[must_use]
-    pub const fn filled_style(mut self, style: Style) -> Self {
+    pub const fn filled_style(mut self, style: CellStyle) -> Self {
         self.filled_style = style;
         self
     }
 
     /// Sets the style used for incomplete cells.
     #[must_use]
-    pub const fn empty_style(mut self, style: Style) -> Self {
+    pub const fn empty_style(mut self, style: CellStyle) -> Self {
         self.empty_style = style;
         self
     }

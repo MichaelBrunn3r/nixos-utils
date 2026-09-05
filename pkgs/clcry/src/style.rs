@@ -1,4 +1,4 @@
-use crate::buffer::{Buffer, Style};
+use crate::buffer::{Buffer, CellStyle};
 use crate::view::{Constraints, Rect, Size};
 
 //region ViewStyle
@@ -195,7 +195,7 @@ pub struct BorderStyle {
     /// Character for vertical edges.
     pub vertical: char,
     /// Style applied to border cells.
-    pub style: Style,
+    pub style: CellStyle,
 }
 
 impl Default for BorderStyle {
@@ -207,7 +207,7 @@ impl Default for BorderStyle {
             bottom_right: '+',
             horizontal: '-',
             vertical: '|',
-            style: Style::default(),
+            style: CellStyle::default(),
         }
     }
 }
@@ -355,22 +355,22 @@ mod tests {
         let parent = Constraints::at_most(20, 20);
 
         assert_eq!(
-            crate::span!("hello").width(10).measure(parent),
+            crate::text!["hello"].width(10).measure(parent),
             Size::new(10, 1)
         );
         assert_eq!(
-            crate::span!("hello").min_width(8).measure(parent),
+            crate::text!["hello"].min_width(8).measure(parent),
             Size::new(8, 1)
         );
         assert_eq!(
-            crate::span!("hello").max_width(3).measure(parent),
-            Size::new(3, 1)
+            crate::text!["hello"].max_width(3).measure(parent),
+            Size::new(3, 2)
         );
     }
 
     #[test]
     fn local_constraints_are_clamped_to_parent_constraints() {
-        let size = crate::span!("hello")
+        let size = crate::text!["hello"]
             .width(20)
             .measure(Constraints::at_most(8, 1));
 
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn box_model_adds_margin_border_and_padding_to_outer_size() {
-        let view = crate::span!("hello")
+        let view = crate::text!["hello"]
             .margin(Insets::all(1))
             .border(BorderStyle::default())
             .padding(Insets::all(2));
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn exact_width_includes_box_model() {
-        let mut view = crate::span!("hello")
+        let mut view = crate::text!["hello"]
             .margin(Insets::all(1))
             .border(BorderStyle::default())
             .padding(Insets::all(2))

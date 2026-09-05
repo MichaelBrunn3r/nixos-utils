@@ -1,0 +1,7 @@
+---
+source: pkgs/clcry/src/text.rs
+expression: buffer.to_plain()
+---
+The quick
+brown-fox
+jumps

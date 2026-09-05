@@ -4,8 +4,8 @@ use std::net::IpAddr;
 
 use chrono::{Local, TimeDelta};
 use clcry::{
-    Buffer, Color, Constraints, Grid, GridColumn, ProgressBar, Rect, Style, View, ViewStyleExt,
-    hflex, hstack, span, vstack,
+    Buffer, CellStyle, Color, Constraints, Grid, GridColumn, ProgressBar, Rect, TextExt, View,
+    ViewStyleExt, hflex, hstack, text, vstack,
 };
 use terminal_size::{Width, terminal_size};
 
@@ -63,10 +63,10 @@ pub fn render(data: &Data) -> String {
 
 fn net(data: &Data) -> Box<dyn View> {
     let mut rows = vec![vec![
-        Box::new(span!("Interface", Style::fg(Color::CYAN))) as Box<dyn View>,
-        Box::new(span!("MAC", Style::fg(Color::CYAN))) as Box<dyn View>,
-        Box::new(span!("IP", Style::fg(Color::CYAN))) as Box<dyn View>,
-        Box::new(span!("↓↑ GiB", Style::fg(Color::CYAN))) as Box<dyn View>,
+        Box::new(text!["Interface".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["MAC".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["IP".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["↓↑ GiB".fg(Color::CYAN)]) as Box<dyn View>,
     ]];
     for (name, iface) in &data.net_ifaces {
         let mac = iface.mac.as_deref().unwrap_or("");
@@ -82,15 +82,15 @@ fn net(data: &Data) -> Box<dyn View> {
             .map(|stats| format!("{} / {}", fmt_gib(stats.rx), fmt_gib(stats.tx)))
             .unwrap_or_default();
         rows.push(vec![
-            Box::new(span!(name.clone())) as Box<dyn View>,
-            Box::new(span!(mac.to_owned())) as Box<dyn View>,
-            Box::new(span!(ip.to_owned())) as Box<dyn View>,
-            Box::new(span!(traffic)) as Box<dyn View>,
+            Box::new(text![name.clone()]) as Box<dyn View>,
+            Box::new(text![mac.to_owned()]) as Box<dyn View>,
+            Box::new(text![ip.to_owned()]) as Box<dyn View>,
+            Box::new(text![traffic]) as Box<dyn View>,
         ]);
     }
     Box::new(
         vstack![
-            span!("Net", Style::fg(Color::GREEN)),
+            text!["Net".fg(Color::GREEN)],
             Grid::new(rows)
                 .columns([
                     GridColumn::content(),
@@ -112,8 +112,8 @@ fn fmt_gib(bytes: u64) -> String {
 fn facts(data: &Data) -> Box<dyn View> {
     let rows = stats_from(data).into_iter().map(|(label, value)| {
         Box::new(hstack![
-            span!(format!("{label} "), Style::fg(Color::GREEN)),
-            span!(format!("{value} ")),
+            text![format!("{label} ").fg(Color::GREEN)],
+            text![format!("{value} ")],
         ]) as Box<dyn View>
     });
     Box::new(hflex![..rows.collect()])
@@ -134,20 +134,17 @@ fn memory_row(label: &str, used: u64, total: u64) -> Vec<Box<dyn View>> {
         used as f64 / total as f64
     };
     vec![
-        Box::new(span!(label, Style::fg(Color::GREEN))) as Box<dyn View>,
+        Box::new(text![label.fg(Color::GREEN)]) as Box<dyn View>,
         Box::new(
             ProgressBar::new()
-                .filled_style(Style::fg(usage_color(progress)))
-                .empty_style(Style::fg(Color::GRAY))
+                .filled_style(CellStyle::fg(usage_color(progress)))
+                .empty_style(CellStyle::fg(Color::GRAY))
                 .progress(progress),
         ),
         Box::new(hstack![
-            span!(format!("{} (", fmt_memory(used, total))),
-            span!(
-                format!("{:.0}%", progress * 100.0),
-                Style::fg(usage_color(progress))
-            ),
-            span!(")"),
+            text![format!("{} (", fmt_memory(used, total))],
+            text![format!("{:.0}%", progress * 100.0).fg(usage_color(progress))],
+            text![")"],
         ]),
     ]
 }
@@ -157,12 +154,12 @@ fn load_row(load: &Load, cpu_count: u32) -> Vec<Box<dyn View>> {
     let bar = |value: f64| {
         let progress = value / scale;
         ProgressBar::new()
-            .filled_style(Style::fg(usage_color(progress)))
-            .empty_style(Style::fg(Color::GRAY))
+            .filled_style(CellStyle::fg(usage_color(progress)))
+            .empty_style(CellStyle::fg(Color::GRAY))
             .progress(progress)
     };
     vec![
-        Box::new(span!("Load", Style::fg(Color::GREEN))) as Box<dyn View>,
+        Box::new(text!["Load".fg(Color::GREEN)]) as Box<dyn View>,
         Box::new(
             hstack![
                 bar(load.one).flex_grow(1),
@@ -172,10 +169,10 @@ fn load_row(load: &Load, cpu_count: u32) -> Vec<Box<dyn View>> {
             .gap(1)
             .max_width(MAX_WIDTH),
         ) as Box<dyn View>,
-        Box::new(span!(format!(
+        Box::new(text![format!(
             "1m {:.1} / 5m {:.1} / 15m {:.1}",
             load.one, load.five, load.fifteen
-        ))),
+        )]),
     ]
 }
 

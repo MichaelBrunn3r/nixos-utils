@@ -3,34 +3,35 @@ pub mod direction;
 pub mod grid;
 pub mod linear_layout;
 pub mod progress_bar;
-pub mod span;
 pub mod style;
+pub mod text;
 pub mod view;
 
 #[cfg(test)]
 mod test_utils;
 
-pub use buffer::{Buffer, Cell, Color, Style};
+pub use buffer::{Buffer, Cell, CellStyle, Color};
 pub use direction::Direction;
 pub use grid::{Grid, GridColumn, GridTrack};
 pub use linear_layout::{ContentAlignment, LinearLayout, NoWrap, Wrap};
 pub use progress_bar::ProgressBar;
-pub use span::Span;
 pub use style::{BorderStyle, Insets, ViewStyle, ViewStyleExt};
+pub use text::{Text, TextExt, TextRun};
 pub use view::{AxisConstraint, Constraints, Rect, Size, View};
 
 pub type Flex = LinearLayout<Wrap>;
 pub type Stack = LinearLayout<NoWrap>;
 
-/// Creates a text span with an optional cell style.
+/// Creates a wrapping text view from plain and styled fragments.
 #[macro_export]
-macro_rules! span {
-    ($data:expr) => {
-        $crate::Span::new($data)
-    };
-    ($data:expr, $style:expr) => {
-        $crate::Span::styled($data, $style)
-    };
+macro_rules! text {
+	($($fragment:expr),* $(,)?) => {{
+		let mut text = $crate::Text::empty();
+		$(
+			text = text.push($fragment);
+		)*
+		text
+	}};
 }
 
 /// Creates a non-wrapping horizontal layout from view expressions.

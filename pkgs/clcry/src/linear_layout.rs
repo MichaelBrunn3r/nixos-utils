@@ -425,7 +425,7 @@ impl LayoutStrategy for Wrap {
 mod tests {
     use super::*;
     use crate::test_utils::{create_item_spans, render};
-    use crate::{BorderStyle, Span, ViewStyleExt};
+    use crate::{BorderStyle, Text, ViewStyleExt};
 
     #[test]
     fn layout_directions_and_wrapping() {
@@ -438,17 +438,17 @@ mod tests {
             .map(|gap| Box::new(crate::vstack![..create_item_spans(4)].gap(gap)) as Box<dyn View>)
             .collect();
         let layout = crate::vstack![
-            Span::new("Wrapping row"),
+            Text::new("Wrapping row"),
             crate::hflex![..create_item_spans(10)]
                 .border(BorderStyle::default())
                 .max_width(17),
-            Span::new("Wrapping column"),
+            Text::new("Wrapping column"),
             crate::vflex![..create_item_spans(10)]
                 .border(BorderStyle::default())
                 .max_height(5),
-            Span::new("Non-wrapping row"),
+            Text::new("Non-wrapping row"),
             crate::vstack![..rows].border(BorderStyle::default()),
-            Span::new("Non-wrapping column"),
+            Text::new("Non-wrapping column"),
             crate::hstack![..columns].border(BorderStyle::default()),
         ];
         insta::assert_snapshot!(render(layout));
@@ -473,17 +473,17 @@ mod tests {
         }
 
         let layout = crate::vstack![
-            Span::new("Row start"),
+            Text::new("Row start"),
             bordered(Direction::Row, ContentAlignment::Start),
-            Span::new("Row center"),
+            Text::new("Row center"),
             bordered(Direction::Row, ContentAlignment::Center),
-            Span::new("Row end"),
+            Text::new("Row end"),
             bordered(Direction::Row, ContentAlignment::End),
-            Span::new("Column start"),
+            Text::new("Column start"),
             bordered(Direction::Column, ContentAlignment::Start),
-            Span::new("Column center"),
+            Text::new("Column center"),
             bordered(Direction::Column, ContentAlignment::Center),
-            Span::new("Column end"),
+            Text::new("Column end"),
             bordered(Direction::Column, ContentAlignment::End),
         ];
         insta::assert_snapshot!(render(layout));
@@ -491,20 +491,20 @@ mod tests {
 
     #[test]
     fn styled_children_grow_in_non_wrapping_layouts() {
-        let mut layout = crate::hstack![crate::span!("A").flex_grow(1), crate::span!("B"),];
+        let mut layout = crate::hstack![crate::text!["A"].flex_grow(1), crate::text!["B"],];
 
         assert_eq!(layout.measure(Constraints::exact(5, 1)), Size::new(5, 1));
     }
 
     #[test]
     fn supports_exact_and_minimum_dimensions() {
-        let mut exact = crate::hstack![crate::span!("hello")].width(10).height(3);
+        let mut exact = crate::hstack![crate::text!["hello"]].width(10).height(3);
         assert_eq!(
             exact.measure(Constraints::at_most(20, 20)),
             Size::new(10, 3)
         );
 
-        let mut minimum = crate::hstack![crate::span!("hello")]
+        let mut minimum = crate::hstack![crate::text!["hello"]]
             .min_width(12)
             .min_height(2);
         assert_eq!(

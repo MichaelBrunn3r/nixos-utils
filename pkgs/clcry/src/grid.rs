@@ -372,14 +372,14 @@ impl View for Grid {
 mod tests {
     use super::*;
     use crate::test_utils::render;
-    use crate::{BorderStyle, Span, ViewStyleExt};
+    use crate::{BorderStyle, Text, ViewStyleExt};
 
     fn text_grid(rows: &[&[&str]]) -> Grid {
         Grid::new(
             rows.iter()
                 .map(|row| {
                     row.iter()
-                        .map(|text| Box::new(Span::new(*text)) as Box<dyn View>)
+                        .map(|text| Box::new(Text::new(*text)) as Box<dyn View>)
                         .collect()
                 })
                 .collect(),
@@ -390,7 +390,7 @@ mod tests {
     fn snapshots_grid_cases() {
         let cases: Vec<Box<dyn View>> = vec![
             Box::new(crate::vstack![
-                Span::new("3x3 gap 1"),
+                Text::new("3x3 gap 1"),
                 text_grid(&[
                     &["A", "B", "C"][..],
                     &["D", "E", "F"][..],
@@ -402,7 +402,7 @@ mod tests {
                 .border(BorderStyle::default()),
             ]),
             Box::new(crate::vstack![
-                Span::new("3x3 content columns fit content"),
+                Text::new("3x3 content columns fit content"),
                 text_grid(&[
                     &["AAA", "b", "c"][..],
                     &["d", "BBBB", "f"][..],
@@ -419,7 +419,7 @@ mod tests {
                 .border(BorderStyle::default()),
             ]),
             Box::new(crate::vstack![
-                Span::new("3x3 middle column flex"),
+                Text::new("3x3 middle column flex"),
                 text_grid(&[
                     &["A", "middle", "X"][..],
                     &["BB", "center", "YYY"][..],
@@ -436,7 +436,7 @@ mod tests {
                 .width(22),
             ]),
             Box::new(crate::vstack![
-                Span::new("3x3 flex columns 1,2,1"),
+                Text::new("3x3 flex columns 1,2,1"),
                 text_grid(&[
                     &["A", "B", "C"][..],
                     &["DD", "EEE", "F"][..],
@@ -454,7 +454,7 @@ mod tests {
                 .width(22),
             ]),
             Box::new(crate::vstack![
-                Span::new("3x3 flex columns 1,2,1 gap 2"),
+                Text::new("3x3 flex columns 1,2,1 gap 2"),
                 text_grid(&[
                     &["A", "B", "C"][..],
                     &["DD", "EEE", "F"][..],
@@ -488,7 +488,7 @@ mod tests {
             .gap_char('░');
 
         insta::assert_snapshot!(render(crate::vstack![
-            Span::new("left / center / right"),
+            Text::new("left / center / right"),
             grid.width(35).border(BorderStyle::default()),
         ]));
     }

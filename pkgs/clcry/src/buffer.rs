@@ -59,70 +59,48 @@ impl Buffer {
     fn row_to_ansi(row: &[Cell]) -> String {
         let content_end = row
             .iter()
-            .rposition(|cell| cell.ch != ' ' || cell.style.sgr_prefix().is_some())
+            .rposition(|cell| cell.ch != ' ' || cell.style != CellStyle::default())
             .map_or(0, |last| last + 1);
 
         let mut out = String::new();
-        let mut active = None;
+        let mut active = CellStyle::default();
         for cell in &row[..content_end] {
-            let prefix = cell.style.sgr_prefix();
-            if prefix != active {
-                if active.is_some() {
-                    out.push_str("\u{1b}[0m");
-                }
-                if let Some(prefix) = prefix {
-                    prefix.write_to(&mut out);
-                }
-                active = prefix;
-            }
+            cell.style.write_delta(active, &mut out);
+            active = cell.style;
             out.push(cell.ch);
         }
-        if active.is_some() {
+        if active != CellStyle::default() {
             out.push_str("\u{1b}[0m");
         }
         out
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-struct AnsiStyle {
-    fg: Option<u8>,
-    bg: Option<u8>,
-}
-
-impl AnsiStyle {
-    fn write_to(self, out: &mut String) {
-        if self.fg.is_none() && self.bg.is_none() {
-            return;
-        }
-
-        out.push_str("\u{1b}[");
-        if let Some(fg) = self.fg {
-            write!(out, "{fg}").expect("writing to a String cannot fail");
-            if self.bg.is_some() {
-                out.push(';');
-            }
-        }
-        if let Some(bg) = self.bg {
-            write!(out, "{bg}").expect("writing to a String cannot fail");
-        }
-        out.push('m');
-    }
-}
-
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct Style {
+pub struct CellStyle {
     fg: Option<Color>,
     bg: Option<Color>,
+    bold: bool,
+    underline: bool,
+    italic: bool,
 }
 
-impl Style {
+impl CellStyle {
     #[must_use]
     pub const fn fg(color: Color) -> Self {
         Self {
             fg: Some(color),
             bg: None,
+            bold: false,
+            underline: false,
+            italic: false,
         }
+    }
+
+    #[must_use]
+    pub const fn with_fg(mut self, color: Color) -> Self {
+        self.fg = Some(color);
+        self
     }
 
     #[must_use]
@@ -132,18 +110,52 @@ impl Style {
     }
 
     #[must_use]
-    fn sgr_prefix(self) -> Option<AnsiStyle> {
-        match (self.fg, self.bg) {
-            (Some(fg), bg) => Some(AnsiStyle {
-                fg: Some(fg.fg_code()),
-                bg: bg.map(Color::bg_code),
-            }),
-            (None, Some(bg)) => Some(AnsiStyle {
-                fg: None,
-                bg: Some(bg.bg_code()),
-            }),
-            (None, None) => None,
+    pub const fn bold(mut self) -> Self {
+        self.bold = true;
+        self
+    }
+
+    #[must_use]
+    pub const fn underline(mut self) -> Self {
+        self.underline = true;
+        self
+    }
+
+    #[must_use]
+    pub const fn italic(mut self) -> Self {
+        self.italic = true;
+        self
+    }
+
+    fn write_delta(self, previous: Self, out: &mut String) {
+        let mut codes = Vec::new();
+        if self.fg != previous.fg {
+            codes.push(self.fg.map_or(39, Color::fg_code));
         }
+        if self.bg != previous.bg {
+            codes.push(self.bg.map_or(49, Color::bg_code));
+        }
+        if self.bold != previous.bold {
+            codes.push(if self.bold { 1 } else { 22 });
+        }
+        if self.italic != previous.italic {
+            codes.push(if self.italic { 3 } else { 23 });
+        }
+        if self.underline != previous.underline {
+            codes.push(if self.underline { 4 } else { 24 });
+        }
+        if codes.is_empty() {
+            return;
+        }
+
+        out.push_str("\u{1b}[");
+        for (index, code) in codes.iter().enumerate() {
+            if index > 0 {
+                out.push(';');
+            }
+            write!(out, "{code}").expect("writing to a String cannot fail");
+        }
+        out.push('m');
     }
 }
 
@@ -188,7 +200,7 @@ impl Color {
 #[derive(Copy, Clone)]
 pub struct Cell {
     pub ch: char,
-    pub style: Style,
+    pub style: CellStyle,
 }
 
 impl Cell {
@@ -196,7 +208,7 @@ impl Cell {
     pub fn blank() -> Self {
         Self {
             ch: ' ',
-            style: Style::default(),
+            style: CellStyle::default(),
         }
     }
 }
