@@ -65,3 +65,16 @@ impl View for Span {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::render;
+    use crate::{Color, Style};
+
+    #[test]
+    fn span_macro_supports_styled_text() {
+        let span = crate::span!("hello", Style::fg(Color::RED));
+
+        assert_eq!(render(span), "hello");
+    }
+}

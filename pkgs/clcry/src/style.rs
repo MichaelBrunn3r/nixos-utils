@@ -1,107 +1,7 @@
 use crate::buffer::{Buffer, Style};
 use crate::view::{Constraints, Rect, Size};
 
-/// Space applied to each side of a rectangular region.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-pub struct Insets {
-    /// Space above the region.
-    pub top: usize,
-    /// Space to the right of the region.
-    pub right: usize,
-    /// Space below the region.
-    pub bottom: usize,
-    /// Space to the left of the region.
-    pub left: usize,
-}
-
-impl Insets {
-    /// Creates independent insets for each side.
-    #[must_use]
-    pub const fn new(top: usize, right: usize, bottom: usize, left: usize) -> Self {
-        Self {
-            top,
-            right,
-            bottom,
-            left,
-        }
-    }
-
-    /// Creates equal insets on every side.
-    #[must_use]
-    pub const fn all(value: usize) -> Self {
-        Self::new(value, value, value, value)
-    }
-
-    /// Creates equal horizontal and vertical insets.
-    #[must_use]
-    pub const fn symmetric(horizontal: usize, vertical: usize) -> Self {
-        Self::new(vertical, horizontal, vertical, horizontal)
-    }
-
-    const fn horizontal(self) -> usize {
-        self.left.saturating_add(self.right)
-    }
-
-    const fn vertical(self) -> usize {
-        self.top.saturating_add(self.bottom)
-    }
-
-    fn inset_rect(self, bounds: Rect) -> Rect {
-        let left = self.left.min(bounds.width);
-        let right = self.right.min(bounds.width.saturating_sub(left));
-        let top = self.top.min(bounds.height);
-        let bottom = self.bottom.min(bounds.height.saturating_sub(top));
-
-        Rect::new(
-            bounds.x.saturating_add(left),
-            bounds.y.saturating_add(top),
-            bounds.width.saturating_sub(left).saturating_sub(right),
-            bounds.height.saturating_sub(top).saturating_sub(bottom),
-        )
-    }
-}
-
-/// Characters and style used to draw a view border.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct BorderStyle {
-    /// Character for the top-left corner.
-    pub top_left: char,
-    /// Character for the top-right corner.
-    pub top_right: char,
-    /// Character for the bottom-left corner.
-    pub bottom_left: char,
-    /// Character for the bottom-right corner.
-    pub bottom_right: char,
-    /// Character for horizontal edges.
-    pub horizontal: char,
-    /// Character for vertical edges.
-    pub vertical: char,
-    /// Style applied to border cells.
-    pub style: Style,
-}
-
-impl Default for BorderStyle {
-    fn default() -> Self {
-        Self {
-            top_left: '+',
-            top_right: '+',
-            bottom_left: '+',
-            bottom_right: '+',
-            horizontal: '-',
-            vertical: '|',
-            style: Style::default(),
-        }
-    }
-}
-
-/// Resolved outer, border, and content rectangles for a view.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct BoxGeometry {
-    pub(crate) outer: Rect,
-    pub(crate) border: Rect,
-    pub(crate) content: Rect,
-}
-
+//region ViewStyle
 /// Resolved style values consumed by layout and rendering.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct ViewStyle {
@@ -213,6 +113,161 @@ impl ViewStyle {
         self.flex_grow
     }
 }
+//endregion ViewStyle
+
+//region Inset
+/// Space applied to each side of a rectangular region.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Insets {
+    /// Space above the region.
+    pub top: usize,
+    /// Space to the right of the region.
+    pub right: usize,
+    /// Space below the region.
+    pub bottom: usize,
+    /// Space to the left of the region.
+    pub left: usize,
+}
+
+impl Insets {
+    /// Creates independent insets for each side.
+    #[must_use]
+    pub const fn new(top: usize, right: usize, bottom: usize, left: usize) -> Self {
+        Self {
+            top,
+            right,
+            bottom,
+            left,
+        }
+    }
+
+    /// Creates equal insets on every side.
+    #[must_use]
+    pub const fn all(value: usize) -> Self {
+        Self::new(value, value, value, value)
+    }
+
+    /// Creates equal horizontal and vertical insets.
+    #[must_use]
+    pub const fn symmetric(horizontal: usize, vertical: usize) -> Self {
+        Self::new(vertical, horizontal, vertical, horizontal)
+    }
+
+    const fn horizontal(self) -> usize {
+        self.left.saturating_add(self.right)
+    }
+
+    const fn vertical(self) -> usize {
+        self.top.saturating_add(self.bottom)
+    }
+
+    fn inset_rect(self, bounds: Rect) -> Rect {
+        let left = self.left.min(bounds.width);
+        let right = self.right.min(bounds.width.saturating_sub(left));
+        let top = self.top.min(bounds.height);
+        let bottom = self.bottom.min(bounds.height.saturating_sub(top));
+
+        Rect::new(
+            bounds.x.saturating_add(left),
+            bounds.y.saturating_add(top),
+            bounds.width.saturating_sub(left).saturating_sub(right),
+            bounds.height.saturating_sub(top).saturating_sub(bottom),
+        )
+    }
+}
+
+//endregion Inset
+
+//region Border
+/// Characters and style used to draw a view border.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BorderStyle {
+    /// Character for the top-left corner.
+    pub top_left: char,
+    /// Character for the top-right corner.
+    pub top_right: char,
+    /// Character for the bottom-left corner.
+    pub bottom_left: char,
+    /// Character for the bottom-right corner.
+    pub bottom_right: char,
+    /// Character for horizontal edges.
+    pub horizontal: char,
+    /// Character for vertical edges.
+    pub vertical: char,
+    /// Style applied to border cells.
+    pub style: Style,
+}
+
+impl Default for BorderStyle {
+    fn default() -> Self {
+        Self {
+            top_left: '+',
+            top_right: '+',
+            bottom_left: '+',
+            bottom_right: '+',
+            horizontal: '-',
+            vertical: '|',
+            style: Style::default(),
+        }
+    }
+}
+
+fn render_border(buffer: &mut Buffer, bounds: Rect, style: BorderStyle) {
+    if bounds.width == 0 || bounds.height == 0 {
+        return;
+    }
+
+    let right = bounds.x.saturating_add(bounds.width - 1);
+    let bottom = bounds.y.saturating_add(bounds.height - 1);
+
+    for x in bounds.x..=right {
+        if let Some(cell) = buffer.cell_mut(x, bounds.y) {
+            cell.ch = if x == bounds.x {
+                style.top_left
+            } else if x == right {
+                style.top_right
+            } else {
+                style.horizontal
+            };
+            cell.style = style.style;
+        }
+        if bottom != bounds.y
+            && let Some(cell) = buffer.cell_mut(x, bottom)
+        {
+            cell.ch = if x == bounds.x {
+                style.bottom_left
+            } else if x == right {
+                style.bottom_right
+            } else {
+                style.horizontal
+            };
+            cell.style = style.style;
+        }
+    }
+
+    for y in bounds.y.saturating_add(1)..bottom {
+        if let Some(cell) = buffer.cell_mut(bounds.x, y) {
+            cell.ch = style.vertical;
+            cell.style = style.style;
+        }
+        if right != bounds.x
+            && let Some(cell) = buffer.cell_mut(right, y)
+        {
+            cell.ch = style.vertical;
+            cell.style = style.style;
+        }
+    }
+}
+
+//endregion Border
+
+/// Resolved outer, border, and content rectangles for a view.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct BoxGeometry {
+    pub(crate) outer: Rect,
+    pub(crate) border: Rect,
+    pub(crate) content: Rect,
+}
 
 /// Fluent setters for the style owned by a view.
 pub trait ViewStyleExt: crate::view::View + Sized {
@@ -289,80 +344,33 @@ pub trait ViewStyleExt: crate::view::View + Sized {
 
 impl<V: crate::view::View + Sized> ViewStyleExt for V {}
 
-fn render_border(buffer: &mut Buffer, bounds: Rect, style: BorderStyle) {
-    if bounds.width == 0 || bounds.height == 0 {
-        return;
-    }
-
-    let right = bounds.x.saturating_add(bounds.width - 1);
-    let bottom = bounds.y.saturating_add(bounds.height - 1);
-
-    for x in bounds.x..=right {
-        if let Some(cell) = buffer.cell_mut(x, bounds.y) {
-            cell.ch = if x == bounds.x {
-                style.top_left
-            } else if x == right {
-                style.top_right
-            } else {
-                style.horizontal
-            };
-            cell.style = style.style;
-        }
-        if bottom != bounds.y
-            && let Some(cell) = buffer.cell_mut(x, bottom)
-        {
-            cell.ch = if x == bounds.x {
-                style.bottom_left
-            } else if x == right {
-                style.bottom_right
-            } else {
-                style.horizontal
-            };
-            cell.style = style.style;
-        }
-    }
-
-    for y in bounds.y.saturating_add(1)..bottom {
-        if let Some(cell) = buffer.cell_mut(bounds.x, y) {
-            cell.ch = style.vertical;
-            cell.style = style.style;
-        }
-        if right != bounds.x
-            && let Some(cell) = buffer.cell_mut(right, y)
-        {
-            cell.ch = style.vertical;
-            cell.style = style.style;
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ViewStyleExt;
     use crate::view::{Size, View};
-    use crate::{Span, ViewStyleExt};
 
     #[test]
     fn applies_exact_minimum_and_maximum_constraints() {
         let parent = Constraints::at_most(20, 20);
 
         assert_eq!(
-            Span::new("hello").width(10).measure(parent),
+            crate::span!("hello").width(10).measure(parent),
             Size::new(10, 1)
         );
         assert_eq!(
-            Span::new("hello").min_width(8).measure(parent),
+            crate::span!("hello").min_width(8).measure(parent),
             Size::new(8, 1)
         );
         assert_eq!(
-            Span::new("hello").max_width(3).measure(parent),
+            crate::span!("hello").max_width(3).measure(parent),
             Size::new(3, 1)
         );
     }
 
     #[test]
     fn local_constraints_are_clamped_to_parent_constraints() {
-        let size = Span::new("hello")
+        let size = crate::span!("hello")
             .width(20)
             .measure(Constraints::at_most(8, 1));
 
@@ -371,7 +379,7 @@ mod tests {
 
     #[test]
     fn box_model_adds_margin_border_and_padding_to_outer_size() {
-        let view = Span::new("hello")
+        let view = crate::span!("hello")
             .margin(Insets::all(1))
             .border(BorderStyle::default())
             .padding(Insets::all(2));
@@ -381,7 +389,7 @@ mod tests {
 
     #[test]
     fn exact_width_includes_box_model() {
-        let mut view = Span::new("hello")
+        let mut view = crate::span!("hello")
             .margin(Insets::all(1))
             .border(BorderStyle::default())
             .padding(Insets::all(2))

@@ -1,0 +1,99 @@
+Old
+---
+OS     NixOS 26.05 (Yarara)                                    
+Host   garuda                                                  
+Kernel 7.1.8                                                   
+Uptime 9d 4h 28m 35s (2026-08-25 09:38)                        
+CPU    12th Gen Intel(R) Core(TM) i5-1240P @ 3.17 GHz, 16 Cores
+Load   1m: 0.66, 5m: 0.87, 15m: 0.93                           
+Memory 13.0 GiB / 31.1 GiB (42%)                               
+Swap   4.8 GiB / 16.9 GiB (28%)                                
+Disks
+Path             Usage                   Type                              Mount                            
+/dev/nvme0n1     931.5 GiB               NVMe SSD (WD_BLACK SN850X 1000GB)                                  
+└─/dev/nvme0n1p1 62.2 / 511.0 MiB (12%)  vfat                              /boot                            
+/dev/sda         232.9 GiB               USB SSD (250GB Card)                                               
+└─/dev/sda3      62.3 / 232.5 GiB (27%)  ntfs3                             /run/media/michael/WIN11_IOT_TOGO
+/dev/dm-1        898.7 GiB                                                                                  
+└─/dev/dm-1      554.2 / 898.7 GiB (62%) ext4                              /                                
+Net
+Interface                                MAC               ↓↑ GiB     
+enp0s13f0u4u2c2                          c8:a3:62:26:1d:c5 5.65 / 0.54
+├─192.168.178.93                                                      
+├─2a00:a520:119d:d00:6cb1:df64:511:bd65                               
+├─2a00:a520:119d:d00:8704:389d:451e:3360                              
+├─fd56:a211:4eab:0:247e:8025:62f6:1cba                                
+├─fd56:a211:4eab:0:ee79:70e7:9a0e:16d                                 
+└─fe80::a856:43b1:b30e:457c                                           
+tailscale0                                                 0.00 / 0.00
+└─fe80::f343:639d:be07:5a34                                           
+virbr0                                   52:54:00:16:e9:f0 0.00 / 0.00
+└─192.168.122.1                      
+---
+
+Current
+---
+Host garuda OS NixOS 26.05 (Yarara) Kernel 7.1.8 Uptime 11d 2h 1m 48s (2026-08-25 09:38)
+CPU 12th Gen Intel(R) Core(TM) i5-1240P @ 3.93 GHz Threads 16
+
+Mem  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 13.4 / 31.1 GiB (43%)
+Swap ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 3.4 / 16.9 GiB (20%)
+Load ■■■■■■■■■■■■■■■■■■■■■■■ ■■■■■■■■■■■■■■■■■■■■■■ ■■■■■■■■■■■■■■■■■■■■■■ 1m 1.0 / 5m 0.9 / 15m 0.8
+
+Net
+Interface       MAC               IP                        ↓↑ GiB
+enp0s13f0u4u2c2 c8:a3:62:26:1d:c5 192.168.178.93            0.01 / 0.00
+tailscale0                        fe80::f343:639d:be07:5a34 0.00 / 0.00
+virbr0          52:54:00:16:e9:f0 192.168.122.1             0.00 / 0.00
+---
+
+
+Idea 1
+---
+Host garuda OS NixOS 26.05 (Yarara) Kernel 7.1.8 Uptime 11d 2h 1m 48s (2026-08-25 09:38)
+CPU 12th Gen Intel(R) Core(TM) i5-1240P @ 3.93 GHz Threads 16
+
+Mem  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 13.4 / 31.1 GiB (43%)
+Swap ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ 3.4 / 16.9 GiB (20%)
+Load ■■■■■■■■■■■■■■■■■■■■■■■ ■■■■■■■■■■■■■■■■■■■■■■ ■■■■■■■■■■■■■■■■■■■■■■ 1m 1.0 / 5m 0.9 / 15m 0.8
+
+Net
+Interface       MAC               IP                        ↓↑ GiB
+enp0s13f0u4u2c2 c8:a3:62:26:1d:c5 192.168.178.93            0.01 / 0.00
+tailscale0                        fe80::f343:639d:be07:5a34 0.00 / 0.00
+virbr0          52:54:00:16:e9:f0 192.168.122.1             0.00 / 0.00
+
+Disks
+Path             Usage                                  Type                              Mount                            
+/dev/nvme0n1     931.5 GiB                              NVMe SSD (WD_BLACK SN850X 1000GB)                                  
+└─/dev/nvme0n1p1 ■■■■■■■■■■■■ 62.2 / 511.0 MiB (12%)    vfat                              /boot                            
+/dev/sda         232.9 GiB                              USB SSD (250GB Card)                                               
+└─/dev/sda3      ■■■■■■■■■■■■ 62.3 / 232.5 GiB (27%)    ntfs3                             /run/media/michael/WIN11_IOT_TOGO
+/dev/dm-1        898.7 GiB                                                                                  
+└─/dev/dm-1      ■■■■■■■■■■■■ 554.2 / 898.7 GiB (62%)   ext4                              /           
+---
+
+Idea 2
+---
+Disks
+Path            Size        Type
+/dev/nvme0n1    931.5 GiB   NVMe SSD (WD_BLACK SN850X 1000GB)
+/dev/sda        232.9 GiB   USB SSD (250GB Card)
+/dev/dm-1       898.7 GiB   ?
+
+FS
+Path            Usage                                   Type    Mount
+/dev/nvme0n1p1  ■■■■■■■■■■■■ 62.2 / 511.0 MiB (12%)     vfat    /boot
+/dev/sda3       ■■■■■■■■■■■■ 62.3 / 232.5 GiB (27%)     ntfs3   /run/media/michael/WIN11_IOT_TOGO
+/dev/dm-1       ■■■■■■■■■■■■ 554.2 / 898.7 GiB (62%)    ext4    /
+--- 
+
+
+Idea 3
+---
+Path             Usage                                Type   Mount
+/dev/nvme0n1     931.5 GiB NVMe SSD (WD_BLACK SN850X 1000GB)                     
+└─/dev/nvme0n1p1 ■■■■■■■■■■■■ 62.2 / 511.0 MiB (12%)  ext4   /boot
+/dev/sda         232.9 GiB USB SSD (250GB Card)
+└─/dev/sda1      ■■■■■■■■■■■■ 62.3 / 232.5 GiB (27%)  ntfs3  /run/media/michael/WIN11_IOT_TOGO
+---

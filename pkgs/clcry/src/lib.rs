@@ -22,6 +22,17 @@ pub use view::{AxisConstraint, Constraints, Rect, Size, View};
 pub type Flex = LinearLayout<Wrap>;
 pub type Stack = LinearLayout<NoWrap>;
 
+/// Creates a text span with an optional cell style.
+#[macro_export]
+macro_rules! span {
+    ($data:expr) => {
+        $crate::Span::new($data)
+    };
+    ($data:expr, $style:expr) => {
+        $crate::Span::styled($data, $style)
+    };
+}
+
 /// Creates a non-wrapping horizontal layout from view expressions.
 #[macro_export]
 macro_rules! hstack {

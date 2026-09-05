@@ -491,20 +491,20 @@ mod tests {
 
     #[test]
     fn styled_children_grow_in_non_wrapping_layouts() {
-        let mut layout = crate::hstack![Span::new("A").flex_grow(1), Span::new("B"),];
+        let mut layout = crate::hstack![crate::span!("A").flex_grow(1), crate::span!("B"),];
 
         assert_eq!(layout.measure(Constraints::exact(5, 1)), Size::new(5, 1));
     }
 
     #[test]
     fn supports_exact_and_minimum_dimensions() {
-        let mut exact = crate::hstack![Span::new("hello")].width(10).height(3);
+        let mut exact = crate::hstack![crate::span!("hello")].width(10).height(3);
         assert_eq!(
             exact.measure(Constraints::at_most(20, 20)),
             Size::new(10, 3)
         );
 
-        let mut minimum = crate::hstack![Span::new("hello")]
+        let mut minimum = crate::hstack![crate::span!("hello")]
             .min_width(12)
             .min_height(2);
         assert_eq!(

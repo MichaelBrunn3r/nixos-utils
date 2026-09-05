@@ -1,12 +1,11 @@
 //! Shared scaffolding for layout-view unit tests (compiled for tests only).
 
 use crate::buffer::Buffer;
-use crate::span::Span;
 use crate::view::{Constraints, Rect, View};
 
 pub fn create_item_spans(n: usize) -> Vec<Box<dyn View>> {
     (0..n)
-        .map(|i| Box::new(Span::new(format!("Item{i}"))) as Box<dyn View>)
+        .map(|i| Box::new(crate::span!(format!("Item{i}"))) as Box<dyn View>)
         .collect()
 }
 

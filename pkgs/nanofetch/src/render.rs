@@ -5,6 +5,7 @@ use tabled::settings::{Color, Modify, Padding, Style};
 
 use crate::data_sources::Memory;
 use crate::gather::Data;
+use crate::percentage::PercentageLevel;
 
 /// Render the gathered data: the top facts as a `key: value` table, with the
 /// `Disks` and `Net` sections appended below when present.
@@ -204,12 +205,11 @@ fn color_usage(pct: u64, text: &str, colored: bool) -> String {
     if !colored {
         return text.to_owned();
     }
-    let color = if pct >= 90 {
-        "\x1b[1;31m" // red_bold
-    } else if pct >= 75 {
-        "\x1b[1;33m" // yellow_bold
-    } else {
-        "\x1b[1;32m" // green_bold
+    let percentage = f64::from(u32::try_from(pct).unwrap_or(u32::MAX));
+    let color = match PercentageLevel::from_percentage(percentage) {
+        PercentageLevel::Normal => "\x1b[1;32m",
+        PercentageLevel::Warning => "\x1b[1;33m",
+        PercentageLevel::Critical => "\x1b[1;31m",
     };
     format!("{color}{text}\x1b[0m")
 }
