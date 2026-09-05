@@ -1,0 +1,10 @@
+---
+source: pkgs/clcry/src/grid.rs
+expression: "render(crate::vstack![Span::new(\"left / center / right\"),\ngrid.width(35).border(BorderStyle::default()),])"
+---
+left / center / right
++---------------------------------+
+|left       ░  center  ░     right|
+|░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░|
+|L          ░    C     ░         R|
++---------------------------------+

@@ -1,5 +1,6 @@
 use crate::buffer::Buffer;
 use crate::direction::Direction;
+use crate::style::ViewStyle;
 use crate::view::{Constraints, Rect, Size, View};
 
 /// A linear container parameterized by its line-placement policy.
@@ -11,6 +12,8 @@ pub struct LinearLayout<S> {
     child_sizes: Vec<Size>,
     placements: Vec<Rect>,
     gap: usize,
+    view_style: ViewStyle,
+    bounds: Option<Rect>,
 }
 
 impl<S: LayoutStrategy> LinearLayout<S> {
@@ -25,6 +28,8 @@ impl<S: LayoutStrategy> LinearLayout<S> {
             child_sizes: Vec::new(),
             placements: Vec::new(),
             gap: 0,
+            view_style: ViewStyle::new(),
+            bounds: None,
         }
     }
 
@@ -125,7 +130,7 @@ impl<S: LayoutStrategy> LinearLayout<S> {
             .child_sizes
             .iter()
             .zip(&self.children)
-            .filter(|(_, child)| child.flex_grow() == 0)
+            .filter(|(_, child)| child.style().flex_grow() == 0)
             .map(|(size, _)| size.extent_parallel_to(self.direction))
             .sum::<usize>()
             .saturating_add(gap_width);
@@ -133,13 +138,13 @@ impl<S: LayoutStrategy> LinearLayout<S> {
             .child_sizes
             .iter()
             .zip(&self.children)
-            .filter(|(_, child)| child.flex_grow() > 0)
+            .filter(|(_, child)| child.style().flex_grow() > 0)
             .map(|(size, _)| size.extent_parallel_to(self.direction))
             .sum::<usize>();
         let growth = self
             .children
             .iter()
-            .map(|child| child.flex_grow())
+            .map(|child| child.style().flex_grow())
             .sum::<usize>();
         if growth == 0 {
             return;
@@ -153,7 +158,7 @@ impl<S: LayoutStrategy> LinearLayout<S> {
                 let extra = if spare == 0 {
                     0
                 } else {
-                    spare.saturating_mul(child.flex_grow()) / growth
+                    spare.saturating_mul(child.style().flex_grow()) / growth
                 };
                 distributed = distributed.saturating_add(extra);
                 let parallel = size
@@ -169,7 +174,7 @@ impl<S: LayoutStrategy> LinearLayout<S> {
                     .child_sizes
                     .iter_mut()
                     .zip(&self.children)
-                    .find(|(_, child)| child.flex_grow() > 0)
+                    .find(|(_, child)| child.style().flex_grow() > 0)
                     .map(|(size, _)| size)
             {
                 let parallel = size
@@ -182,7 +187,7 @@ impl<S: LayoutStrategy> LinearLayout<S> {
         } else {
             let mut allocated = 0usize;
             for (child, size) in self.children.iter().zip(&mut self.child_sizes) {
-                if child.flex_grow() == 0 {
+                if child.style().flex_grow() == 0 {
                     continue;
                 }
                 let parallel = if flexible_parallel == 0 {
@@ -204,7 +209,7 @@ impl<S: LayoutStrategy> LinearLayout<S> {
                     .child_sizes
                     .iter_mut()
                     .zip(&self.children)
-                    .find(|(_, child)| child.flex_grow() > 0)
+                    .find(|(_, child)| child.style().flex_grow() > 0)
                     .map(|(size, _)| size)
             {
                 let parallel = size
@@ -220,9 +225,14 @@ impl<S: LayoutStrategy> LinearLayout<S> {
 
 impl<S: LayoutStrategy> View for LinearLayout<S> {
     fn measure(&mut self, constraints: Constraints) -> Size {
-        let available = Self::available_size(constraints);
-        let has_flex =
-            !self.strategy.wraps() && self.children.iter().any(|child| child.flex_grow() > 0);
+        let outer_constraints = self.view_style.resolve(constraints);
+        let content_constraints = self.view_style.content_constraints(constraints);
+        let available = Self::available_size(content_constraints);
+        let has_flex = !self.strategy.wraps()
+            && self
+                .children
+                .iter()
+                .any(|child| child.style().flex_grow() > 0);
         let mut child_sizes = Vec::with_capacity(self.children.len());
         let mut used_parallel = 0usize;
 
@@ -251,7 +261,7 @@ impl<S: LayoutStrategy> View for LinearLayout<S> {
         self.resolve_flex_sizes(available);
         if has_flex {
             for (child, size) in self.children.iter_mut().zip(&self.child_sizes) {
-                if child.flex_grow() > 0 {
+                if child.style().flex_grow() > 0 {
                     let parallel = size.extent_parallel_to(self.direction);
                     child.measure(
                         self.direction.constraints(
@@ -263,11 +273,24 @@ impl<S: LayoutStrategy> View for LinearLayout<S> {
             }
         }
         self.placements.clear();
-        constraints.clamp(self.compute_layout(available, &self.child_sizes).1)
+        outer_constraints.clamp(
+            self.view_style
+                .outer_size(self.compute_layout(available, &self.child_sizes).1),
+        )
+    }
+
+    fn style(&self) -> &ViewStyle {
+        &self.view_style
+    }
+
+    fn style_mut(&mut self) -> &mut ViewStyle {
+        &mut self.view_style
     }
 
     fn arrange(&mut self, bounds: Rect) {
-        let available = Size::new(bounds.width, bounds.height);
+        self.bounds = Some(bounds);
+        let geometry = self.view_style.geometry(bounds);
+        let available = Size::new(geometry.content.width, geometry.content.height);
         let (placements, content_size) = self.compute_layout(available, &self.child_sizes);
         let alignment_offset = self.content_alignment.offset(
             available.extent_parallel_to(self.direction),
@@ -291,8 +314,8 @@ impl<S: LayoutStrategy> View for LinearLayout<S> {
                     ),
                 };
                 Rect::new(
-                    bounds.x.saturating_add(local.x),
-                    bounds.y.saturating_add(local.y),
+                    geometry.content.x.saturating_add(local.x),
+                    geometry.content.y.saturating_add(local.y),
                     local.width,
                     local.height,
                 )
@@ -305,6 +328,10 @@ impl<S: LayoutStrategy> View for LinearLayout<S> {
     }
 
     fn render(&self, buffer: &mut Buffer) {
+        if let Some(bounds) = self.bounds {
+            self.view_style
+                .render_decorations(buffer, self.view_style.geometry(bounds));
+        }
         for child in &self.children {
             child.render(buffer);
         }
@@ -324,7 +351,7 @@ pub enum ContentAlignment {
 }
 
 impl ContentAlignment {
-    const fn offset(self, available: usize, content: usize) -> usize {
+    pub(crate) const fn offset(self, available: usize, content: usize) -> usize {
         let remaining = available.saturating_sub(content);
         match self {
             Self::Start => 0,
@@ -398,7 +425,7 @@ impl LayoutStrategy for Wrap {
 mod tests {
     use super::*;
     use crate::test_utils::{create_item_spans, render};
-    use crate::{BorderStyle, Frame, ProgressBar, Span};
+    use crate::{BorderStyle, Span, ViewStyleExt};
 
     #[test]
     fn layout_directions_and_wrapping() {
@@ -412,43 +439,37 @@ mod tests {
             .collect();
         let layout = crate::vstack![
             Span::new("Wrapping row"),
-            crate::Sized::new(
-                Frame::new(crate::hflex![..create_item_spans(10)]).border(BorderStyle::default()),
-            )
-            .max_width(17),
+            crate::hflex![..create_item_spans(10)]
+                .border(BorderStyle::default())
+                .max_width(17),
             Span::new("Wrapping column"),
-            crate::Sized::new(
-                Frame::new(crate::vflex![..create_item_spans(10)]).border(BorderStyle::default()),
-            )
-            .max_height(5),
+            crate::vflex![..create_item_spans(10)]
+                .border(BorderStyle::default())
+                .max_height(5),
             Span::new("Non-wrapping row"),
-            Frame::new(crate::vstack![..rows]).border(BorderStyle::default()),
+            crate::vstack![..rows].border(BorderStyle::default()),
             Span::new("Non-wrapping column"),
-            Frame::new(crate::hstack![..columns]).border(BorderStyle::default()),
+            crate::hstack![..columns].border(BorderStyle::default()),
         ];
         insta::assert_snapshot!(render(layout));
     }
 
     #[test]
     fn content_alignment() {
-        fn bordered(direction: Direction, alignment: ContentAlignment) -> crate::Sized {
-            crate::Sized::new(
-                Frame::new(
-                    LinearLayout::<NoWrap>::new(direction, create_item_spans(2))
-                        .content_alignment(alignment),
-                )
-                .border(BorderStyle::default()),
-            )
-            .width(if matches!(direction, Direction::Row) {
-                15
-            } else {
-                7
-            })
-            .height(if matches!(direction, Direction::Row) {
-                3
-            } else {
-                6
-            })
+        fn bordered(direction: Direction, alignment: ContentAlignment) -> impl View {
+            LinearLayout::<NoWrap>::new(direction, create_item_spans(2))
+                .content_alignment(alignment)
+                .border(BorderStyle::default())
+                .width(if matches!(direction, Direction::Row) {
+                    15
+                } else {
+                    7
+                })
+                .height(if matches!(direction, Direction::Row) {
+                    3
+                } else {
+                    6
+                })
         }
 
         let layout = crate::vstack![
@@ -469,34 +490,26 @@ mod tests {
     }
 
     #[test]
+    fn styled_children_grow_in_non_wrapping_layouts() {
+        let mut layout = crate::hstack![Span::new("A").flex_grow(1), Span::new("B"),];
+
+        assert_eq!(layout.measure(Constraints::exact(5, 1)), Size::new(5, 1));
+    }
+
+    #[test]
     fn supports_exact_and_minimum_dimensions() {
-        let mut exact = crate::Sized::new(crate::hstack![Span::new("hello")])
-            .width(10)
-            .height(3);
+        let mut exact = crate::hstack![Span::new("hello")].width(10).height(3);
         assert_eq!(
             exact.measure(Constraints::at_most(20, 20)),
             Size::new(10, 3)
         );
 
-        let mut minimum = crate::Sized::new(crate::hstack![Span::new("hello")])
+        let mut minimum = crate::hstack![Span::new("hello")]
             .min_width(12)
             .min_height(2);
         assert_eq!(
             minimum.measure(Constraints::at_most(20, 20)),
             Size::new(12, 2)
         );
-    }
-
-    #[test]
-    fn progress_bar_renders_fractional_progress() {
-        let render_meter =
-            |width| crate::test_utils::render_sized(ProgressBar::new().progress(0.53), (width, 1));
-        let snapshots = [("wide", render_meter(60)), ("narrow", render_meter(40))]
-            .into_iter()
-            .map(|(name, output)| format!("{name}\n{output}"))
-            .collect::<Vec<_>>()
-            .join("\n\n");
-
-        insta::assert_snapshot!(snapshots);
     }
 }

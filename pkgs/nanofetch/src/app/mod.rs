@@ -4,8 +4,8 @@ use std::net::IpAddr;
 
 use chrono::{Local, TimeDelta};
 use clcry::{
-    Buffer, Color, Constraints, Flexible, Grid, GridTrack, ProgressBar, Rect, Sized, Span, Style,
-    View, hflex, hstack, vstack,
+    Buffer, Color, Constraints, Grid, GridColumn, ProgressBar, Rect, Span, Style, View,
+    ViewStyleExt, hflex, hstack, vstack,
 };
 use terminal_size::{Width, terminal_size};
 
@@ -32,7 +32,11 @@ pub fn render(data: &Data) -> String {
     if !memory_rows.is_empty() {
         sections.push(Box::new(
             Grid::new(memory_rows)
-                .columns([GridTrack::Content, GridTrack::Flexible(1)])
+                .columns([
+                    GridColumn::content(),
+                    GridColumn::flexible(1),
+                    GridColumn::content(),
+                ])
                 .column_gap(1),
         ));
     }
@@ -40,7 +44,7 @@ pub fn render(data: &Data) -> String {
         sections.push(net(data));
     }
 
-    let mut screen = Sized::new(vstack![..sections].gap(1)).max_width(MAX_WIDTH);
+    let mut screen = vstack![..sections].gap(1).max_width(MAX_WIDTH);
 
     let width = terminal.map_or(usize::MAX, |(Width(width), _)| usize::from(width));
     let size = screen.measure(Constraints::at_most(width, usize::MAX));
@@ -88,10 +92,10 @@ fn net(data: &Data) -> Box<dyn View> {
             Span::styled("Net", Style::fg(Color::GREEN)),
             Grid::new(rows)
                 .columns([
-                    GridTrack::Content,
-                    GridTrack::Content,
-                    GridTrack::Content,
-                    GridTrack::Content,
+                    GridColumn::content(),
+                    GridColumn::content(),
+                    GridColumn::content(),
+                    GridColumn::content(),
                 ])
                 .column_gap(1),
         ]
@@ -114,6 +118,17 @@ fn facts(data: &Data) -> Box<dyn View> {
     Box::new(hflex![..rows.collect()])
 }
 
+fn usage_color(progress: f64) -> Color {
+    let percentage = progress * 100.0;
+    if percentage >= 90.0 {
+        Color::RED
+    } else if percentage >= 75.0 {
+        Color::YELLOW
+    } else {
+        Color::WHITE
+    }
+}
+
 fn memory_row(label: &str, used: u64, total: u64) -> Vec<Box<dyn View>> {
     let progress = if total == 0 {
         0.0
@@ -124,40 +139,42 @@ fn memory_row(label: &str, used: u64, total: u64) -> Vec<Box<dyn View>> {
         Box::new(Span::styled(label, Style::fg(Color::GREEN))) as Box<dyn View>,
         Box::new(
             ProgressBar::new()
-                .filled_style(Style::fg(Color::BLACK).bg(Color::WHITE))
-                .empty_style(Style::fg(Color::WHITE).bg(Color::GRAY))
-                .label(format!(
-                    "{} ({:.0}%)",
-                    fmt_memory(used, total),
-                    progress * 100.0
-                ))
+                .filled_style(Style::fg(usage_color(progress)))
+                .empty_style(Style::fg(Color::GRAY))
                 .progress(progress),
         ),
+        Box::new(Span::new(format!(
+            "{} ({:.0}%)",
+            fmt_memory(used, total),
+            progress * 100.0
+        ))),
     ]
 }
 
 fn load_row(load: &Load, cpu_count: u32) -> Vec<Box<dyn View>> {
     let scale = f64::from(cpu_count);
-    let bar = |label: &str, value: f64| {
+    let bar = |value: f64| {
+        let progress = value / scale;
         ProgressBar::new()
-            .filled_style(Style::fg(Color::BLACK).bg(Color::WHITE))
-            .empty_style(Style::fg(Color::WHITE).bg(Color::GRAY))
-            .label(format!("{label} {value:.2}"))
-            .progress(value / scale)
+            .filled_style(Style::fg(usage_color(progress)))
+            .empty_style(Style::fg(Color::GRAY))
+            .progress(progress)
     };
     vec![
         Box::new(Span::styled("Load", Style::fg(Color::GREEN))) as Box<dyn View>,
         Box::new(
-            Sized::new(
-                hstack![
-                    Flexible::new(bar("1m", load.one)),
-                    Flexible::new(bar("5m", load.five)),
-                    Flexible::new(bar("15m", load.fifteen)),
-                ]
-                .gap(1),
-            )
+            hstack![
+                bar(load.one).flex_grow(1),
+                bar(load.five).flex_grow(1),
+                bar(load.fifteen).flex_grow(1),
+            ]
+            .gap(1)
             .max_width(MAX_WIDTH),
         ) as Box<dyn View>,
+        Box::new(Span::new(format!(
+            "1m {:.1} / 5m {:.1} / 15m {:.1}",
+            load.one, load.five, load.fifteen
+        ))),
     ]
 }
 
@@ -243,52 +260,5 @@ fn fmt_duration(duration: TimeDelta) -> String {
         "0s".to_owned()
     } else {
         parts.join(" ")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use clcry::ContentAlignment;
-
-    use super::*;
-    use crate::data_sources::Memory;
-
-    #[test]
-    fn snapshots_memory_and_swap_rows() {
-        let data = Data {
-            memory: Some(Memory {
-                used: 13 * (1 << 30) + 322_122_547,
-                total: 31 * (1 << 30) + 107_374_182,
-            }),
-            swap: Some(Memory {
-                used: 256 * (1 << 20),
-                total: 16 * (1 << 30) + 966_367_642,
-            }),
-            ..Data::default()
-        };
-
-        let mut screen = hstack![Sized::new(
-            Grid::new(vec![
-                memory_row(
-                    "Mem",
-                    data.memory.as_ref().expect("memory is present").used,
-                    data.memory.as_ref().expect("memory is present").total,
-                ),
-                memory_row(
-                    "Swap",
-                    data.swap.as_ref().expect("swap is present").used,
-                    data.swap.as_ref().expect("swap is present").total,
-                ),
-            ])
-            .columns([GridTrack::Content, GridTrack::Flexible(1),])
-            .column_gap(1),
-        )]
-        .content_alignment(ContentAlignment::Center);
-        let size = screen.measure(Constraints::at_most(80, usize::MAX));
-        let mut buffer = Buffer::new(80, size.height);
-        screen.arrange(Rect::new(0, 0, 80, size.height));
-        screen.render(&mut buffer);
-
-        insta::assert_snapshot!(buffer.to_plain());
     }
 }

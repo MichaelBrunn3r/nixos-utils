@@ -1,12 +1,10 @@
 pub mod buffer;
 pub mod direction;
-pub mod flexible;
-pub mod frame;
 pub mod grid;
 pub mod linear_layout;
 pub mod progress_bar;
-pub mod sized;
 pub mod span;
+pub mod style;
 pub mod view;
 
 #[cfg(test)]
@@ -14,13 +12,11 @@ mod test_utils;
 
 pub use buffer::{Buffer, Cell, Color, Style};
 pub use direction::Direction;
-pub use flexible::Flexible;
-pub use frame::{BorderStyle, Frame, Insets};
-pub use grid::{Grid, GridTrack};
+pub use grid::{Grid, GridColumn, GridTrack};
 pub use linear_layout::{ContentAlignment, LinearLayout, NoWrap, Wrap};
 pub use progress_bar::ProgressBar;
-pub use sized::Sized;
 pub use span::Span;
+pub use style::{BorderStyle, Insets, ViewStyle, ViewStyleExt};
 pub use view::{AxisConstraint, Constraints, Rect, Size, View};
 
 pub type Flex = LinearLayout<Wrap>;

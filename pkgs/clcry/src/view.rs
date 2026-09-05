@@ -1,5 +1,6 @@
 use crate::buffer::Buffer;
 use crate::direction::Direction;
+use crate::style::ViewStyle;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// A measured view size.
@@ -235,10 +236,11 @@ pub trait View {
     /// Computes the desired size under the supplied constraints.
     fn measure(&mut self, constraints: Constraints) -> Size;
 
-    /// Returns the amount of spare main-axis space this view wants.
-    fn flex_grow(&self) -> usize {
-        0
-    }
+    /// Returns the resolved style values consumed by parent layouts.
+    fn style(&self) -> &ViewStyle;
+
+    /// Returns mutable style values for fluent view configuration.
+    fn style_mut(&mut self) -> &mut ViewStyle;
 
     /// Assigns this view its final rectangle and arranges its children.
     fn arrange(&mut self, bounds: Rect);

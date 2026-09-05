@@ -110,7 +110,7 @@ impl AnsiStyle {
     }
 }
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Style {
     fg: Option<Color>,
     bg: Option<Color>,
@@ -131,15 +131,6 @@ impl Style {
         self
     }
 
-    pub(crate) const fn with_fg(mut self, color: Color) -> Self {
-        self.fg = Some(color);
-        self
-    }
-
-    pub(crate) const fn background(self) -> Option<Color> {
-        self.bg
-    }
-
     #[must_use]
     fn sgr_prefix(self) -> Option<AnsiStyle> {
         match (self.fg, self.bg) {
@@ -157,7 +148,7 @@ impl Style {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Color {
     GRAY,
     RED,
