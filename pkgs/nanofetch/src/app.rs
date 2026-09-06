@@ -41,6 +41,9 @@ pub fn render(data: &Data) -> String {
                 .column_gap(1),
         ));
     }
+    if !data.disks.is_empty() {
+        sections.push(disks(data));
+    }
     if !data.net_ifaces.is_empty() {
         sections.push(net(data));
     }
@@ -59,6 +62,48 @@ pub fn render(data: &Data) -> String {
     } else {
         buffer.to_plain()
     }
+}
+
+fn disks(data: &Data) -> Box<dyn View> {
+    let mut rows = vec![vec![
+        Box::new(text!["Path".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["Usage".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["Type".fg(Color::CYAN)]) as Box<dyn View>,
+        Box::new(text!["Mount".fg(Color::CYAN)]) as Box<dyn View>,
+    ]];
+    for disk in &data.disks {
+        rows.push(vec![
+            Box::new(text![disk.path.clone()]) as Box<dyn View>,
+            Box::new(text![fmt_filesize(disk.size)]) as Box<dyn View>,
+            Box::new(text![disk.kind.clone()]) as Box<dyn View>,
+            Box::new(text![""]) as Box<dyn View>,
+        ]);
+        let last = disk.filesystems.len().saturating_sub(1);
+        for (index, filesystem) in disk.filesystems.iter().enumerate() {
+            let branch = if index == last { "└─" } else { "├─" };
+            let usage = fmt_fs_usage(filesystem.used, filesystem.size);
+            rows.push(vec![
+                Box::new(text![format!("{branch}{}", filesystem.source)]) as Box<dyn View>,
+                Box::new(text![usage]) as Box<dyn View>,
+                Box::new(text![filesystem.fstype.clone()]) as Box<dyn View>,
+                Box::new(text![filesystem.mount.clone()]) as Box<dyn View>,
+            ]);
+        }
+    }
+    Box::new(
+        vstack![
+            text!["Disks".fg(Color::GREEN)],
+            Grid::new(rows)
+                .columns([
+                    GridColumn::content(),
+                    GridColumn::content(),
+                    GridColumn::content(),
+                    GridColumn::content(),
+                ])
+                .column_gap(1),
+        ]
+        .gap(0),
+    )
 }
 
 fn net(data: &Data) -> Box<dyn View> {
@@ -198,6 +243,15 @@ fn fmt_filesize(bytes: u64) -> String {
     } else {
         format!("{bytes} B")
     }
+}
+
+fn fmt_fs_usage(used: u64, total: u64) -> String {
+    let percentage = if total == 0 {
+        0.0
+    } else {
+        used as f64 / total as f64 * 100.0
+    };
+    format!("{} ({percentage:.0}%)", fmt_memory(used, total))
 }
 
 fn stats_from(data: &Data) -> Vec<(String, String)> {

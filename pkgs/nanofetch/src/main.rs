@@ -2,9 +2,6 @@ mod app;
 mod data_sources;
 mod gather;
 mod percentage;
-#[cfg(test)]
-#[allow(dead_code)]
-mod render;
 
 use std::path::PathBuf;
 
