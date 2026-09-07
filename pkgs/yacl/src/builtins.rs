@@ -1,3 +1,9 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::missing_errors_doc
+)]
+
 use crate::eval::{EvalError, Value};
 
 //region Constants
@@ -128,14 +134,14 @@ fn unary_predicate<'input>(
     }
 }
 
-fn numeric_pair<'input>(arguments: &[Value<'input>]) -> Option<(f64, f64)> {
+fn numeric_pair(arguments: &[Value<'_>]) -> Option<(f64, f64)> {
     match arguments {
         [left, right] => Some((as_float(left)?, as_float(right)?)),
         _ => None,
     }
 }
 
-fn numeric_values<'input>(arguments: &[Value<'input>]) -> Result<(f64, f64, f64), EvalError> {
+fn numeric_values(arguments: &[Value<'_>]) -> Result<(f64, f64, f64), EvalError> {
     match arguments {
         [value, minimum, maximum] => Ok((
             as_float(value).ok_or(EvalError::TypeMismatch)?,
@@ -146,7 +152,7 @@ fn numeric_values<'input>(arguments: &[Value<'input>]) -> Result<(f64, f64, f64)
     }
 }
 
-fn as_float<'input>(value: &Value<'input>) -> Option<f64> {
+const fn as_float(value: &Value<'_>) -> Option<f64> {
     match value {
         Value::Int(value) => Some(*value as f64),
         Value::Float(value) => Some(*value),
@@ -214,19 +220,22 @@ mod tests {
     use super::*;
     use crate::{eval::evaluate_ast, parser::Parser};
 
-    fn evaluate(input: &str) -> Result<crate::eval::Document<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = crate::eval::Scope::global();
+        let scope = crate::eval::Scope::root();
         evaluate_ast(&ast, &scope)
     }
 
     #[test]
     fn evaluates_builtins_through_the_pipeline() {
         let document = evaluate(
-            "constant = pi\nsine = sin(pi / 2)\ncosine = cos(pi)\ndown = floor(3.7)\nup = ceil(-3.7)\nnearest = round(sin(pi / 2))",
+            "use std.*\nconstant = pi\nsine = sin(pi / 2)\ncosine = cos(pi)\ndown = floor(3.7)\nup = ceil(-3.7)\nnearest = round(sin(pi / 2))",
         )
         .expect("builtins should evaluate");
 
+        let Value::Map(document) = document else {
+            panic!("expected map")
+        };
         assert_eq!(document.get("constant"), Some(&PI));
         assert_eq!(document.get("sine"), Some(&Value::Float(1.0)));
         assert_eq!(document.get("cosine"), Some(&Value::Float(-1.0)));
@@ -238,10 +247,13 @@ mod tests {
     #[test]
     fn evaluates_math_builtins_through_the_pipeline() {
         let document = evaluate(
-            "absolute = abs(-3)\nminimum = min(4, 2.5)\nmaximum = max(4, 2.5)\nlimited = clamp(12, 0, 10)\nroot = sqrt(9)\nnatural_log = ln(1)\nbase_two_log = log(8, 2)\nbase_ten_log = log(100, 10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = is_finite(1)\ninfinite = is_infinite(1)\nnan = is_nan(1)",
+            "use std.*\nabsolute = abs(-3)\nminimum = min(4, 2.5)\nmaximum = max(4, 2.5)\nlimited = clamp(12, 0, 10)\nroot = sqrt(9)\nnatural_log = ln(1)\nbase_two_log = log(8, 2)\nbase_ten_log = log(100, 10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = is_finite(1)\ninfinite = is_infinite(1)\nnan = is_nan(1)",
         )
         .expect("math builtins should evaluate");
 
+        let Value::Map(document) = document else {
+            panic!("expected map")
+        };
         assert_eq!(document.get("absolute"), Some(&Value::Int(3)));
         assert_eq!(document.get("minimum"), Some(&Value::Float(2.5)));
         assert_eq!(document.get("maximum"), Some(&Value::Float(4.0)));
@@ -265,11 +277,17 @@ mod tests {
 
     #[test]
     fn rejects_invalid_builtin_arguments_through_the_pipeline() {
-        assert_eq!(evaluate("result = cos(true)"), Err(EvalError::TypeMismatch));
         assert_eq!(
-            evaluate("result = round(1, 2)"),
+            evaluate("use std.*\nresult = cos(true)"),
             Err(EvalError::TypeMismatch)
         );
-        assert_eq!(evaluate("result = log(10)"), Err(EvalError::TypeMismatch));
+        assert_eq!(
+            evaluate("use std.*\nresult = round(1, 2)"),
+            Err(EvalError::TypeMismatch)
+        );
+        assert_eq!(
+            evaluate("use std.*\nresult = log(10)"),
+            Err(EvalError::TypeMismatch)
+        );
     }
 }

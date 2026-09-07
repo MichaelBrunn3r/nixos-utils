@@ -1,6 +1,19 @@
 #[derive(Debug, PartialEq)]
 pub struct AST<'input> {
-    pub pairs: Vec<KV<'input>>,
+    pub statements: Vec<Statement<'input>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Statement<'input> {
+    Expr(Expr<'input>),
+    KV(KV<'input>),
+    Use(Use<'input>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Use<'input> {
+    pub path: Vec<&'input str>,
+    pub wildcard: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -9,13 +22,19 @@ pub struct KV<'input> {
     pub expr: Expr<'input>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Identifier<'input> {
+    Simple(&'input str),
+    Qualified(Vec<&'input str>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum UnaryOp {
     Positive,
     Negative,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BinaryOp {
     Add,
     Sub,
@@ -30,7 +49,7 @@ pub enum Expr<'input> {
     Int(i64),
     Float(f64),
     Str(&'input str),
-    Id(&'input str),
+    Id(Identifier<'input>),
     Unary {
         op: UnaryOp,
         value: Box<Self>,
@@ -41,7 +60,7 @@ pub enum Expr<'input> {
         right: Box<Self>,
     },
     Call {
-        name: &'input str,
+        path: Vec<&'input str>,
         arguments: Vec<Self>,
     },
 }
@@ -50,22 +69,21 @@ pub enum Expr<'input> {
 pub mod test_utils {
     use super::*;
 
+    #[must_use]
     pub fn int(value: i64) -> Expr<'static> {
         Expr::Int(value)
     }
 
-    pub fn op_unary<'input>(op: UnaryOp, value: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn op_unary(op: UnaryOp, value: Expr<'_>) -> Expr<'_> {
         Expr::Unary {
             op,
             value: Box::new(value),
         }
     }
 
-    pub fn op_binary<'input>(
-        left: Expr<'input>,
-        op: BinaryOp,
-        right: Expr<'input>,
-    ) -> Expr<'input> {
+    #[must_use]
+    pub fn op_binary<'a>(left: Expr<'a>, op: BinaryOp, right: Expr<'a>) -> Expr<'a> {
         Expr::Binary {
             left: Box::new(left),
             op,
@@ -73,42 +91,58 @@ pub mod test_utils {
         }
     }
 
-    pub fn add<'input>(left: Expr<'input>, right: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn add<'a>(left: Expr<'a>, right: Expr<'a>) -> Expr<'a> {
         op_binary(left, BinaryOp::Add, right)
     }
 
-    pub fn sub<'input>(left: Expr<'input>, right: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn sub<'a>(left: Expr<'a>, right: Expr<'a>) -> Expr<'a> {
         op_binary(left, BinaryOp::Sub, right)
     }
 
-    pub fn mul<'input>(left: Expr<'input>, right: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn mul<'a>(left: Expr<'a>, right: Expr<'a>) -> Expr<'a> {
         op_binary(left, BinaryOp::Mul, right)
     }
 
-    pub fn div<'input>(left: Expr<'input>, right: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn div<'a>(left: Expr<'a>, right: Expr<'a>) -> Expr<'a> {
         op_binary(left, BinaryOp::Div, right)
     }
 
-    pub fn exp<'input>(left: Expr<'input>, right: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn exp<'a>(left: Expr<'a>, right: Expr<'a>) -> Expr<'a> {
         op_binary(left, BinaryOp::Exp, right)
     }
 
-    pub fn op_pos<'input>(value: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn op_pos(value: Expr<'_>) -> Expr<'_> {
         op_unary(UnaryOp::Positive, value)
     }
 
-    pub fn op_neg<'input>(value: Expr<'input>) -> Expr<'input> {
+    #[must_use]
+    pub fn op_neg(value: Expr<'_>) -> Expr<'_> {
         op_unary(UnaryOp::Negative, value)
     }
 
-    pub fn call<'input>(name: &'input str, arguments: Vec<Expr<'input>>) -> Expr<'input> {
-        Expr::Call { name, arguments }
+    #[must_use]
+    pub fn call<'a>(name: &'a str, arguments: Vec<Expr<'a>>) -> Expr<'a> {
+        Expr::Call {
+            path: vec![name],
+            arguments,
+        }
     }
 
-    pub fn assert_pairs(document: AST<'_>, expected: &[(&str, Expr<'_>)]) {
-        assert_eq!(document.pairs.len(), expected.len());
+    #[allow(clippy::missing_panics_doc)]
+    pub fn assert_pairs(document: &AST<'_>, expected: &[(&str, Expr<'_>)]) {
+        assert_eq!(document.statements.len(), expected.len());
 
-        for (pair, (expected_key, expected_value)) in document.pairs.iter().zip(expected) {
+        for (statement, (expected_key, expected_value)) in document.statements.iter().zip(expected)
+        {
+            let Statement::KV(pair) = statement else {
+                panic!("expected an entry statement")
+            };
             assert_eq!(pair.key, *expected_key);
             assert_eq!(&pair.expr, expected_value);
         }

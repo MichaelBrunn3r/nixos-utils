@@ -18,10 +18,10 @@ fn run() -> Result<(), String> {
     let ast = Parser::new(&input)
         .parse()
         .map_err(|error| format!("failed to parse {path:?}: {error:?}"))?;
-    let scope = Scope::global();
-    let document = evaluate_ast(&ast, &scope)
+    let scope = Scope::root();
+    let value = evaluate_ast(&ast, &scope)
         .map_err(|error| format!("failed to evaluate {path:?}: {error:?}"))?;
 
-    println!("{document:#?}");
+    println!("{value:#?}");
     Ok(())
 }

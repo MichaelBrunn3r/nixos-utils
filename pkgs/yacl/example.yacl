@@ -1,5 +1,7 @@
 // A small YACL configuration demonstrating literals and builtins.
 
+use std.*
+
 name = "example"
 enabled = true
 workers = 2 + 2

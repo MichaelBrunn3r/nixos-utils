@@ -1,3 +1,5 @@
+#![allow(clippy::cast_precision_loss)]
+
 pub struct Lexer<'input> {
     input: &'input str,
     pos: usize,
@@ -6,7 +8,8 @@ pub struct Lexer<'input> {
 }
 
 impl<'input> Lexer<'input> {
-    pub fn new(input: &'input str) -> Self {
+    #[must_use]
+    pub const fn new(input: &'input str) -> Self {
         Self {
             input,
             pos: 0,
@@ -25,14 +28,13 @@ impl<'input> Iterator for Lexer<'input> {
             return Some(Ok(Token::Sep));
         }
 
-        let Some(c) = self.peek_char() else {
-            return None;
-        };
+        let c = self.peek_char()?;
 
         let token = match c {
             ',' | '\n' => Ok(Token::Sep),
             '(' => Ok(Token::LParen),
             ')' => Ok(Token::RParen),
+            '.' => Ok(Token::Dot),
             '+' => Ok(Token::Add),
             '-' => Ok(Token::Sub),
             '^' => Ok(Token::Exp),
@@ -48,7 +50,7 @@ impl<'input> Iterator for Lexer<'input> {
             '=' => Ok(Token::Eq),
             '"' | '\'' => return Some(self.read_string(c)),
             '0'..='9' => return Some(self.read_number()),
-            _ => return Some(self.read_identifier()),
+            _ => return Some(Ok(self.read_identifier())),
         };
 
         self.next_char();
@@ -252,14 +254,14 @@ impl<'input> Lexer<'input> {
         Ok((has_decimals, self.buffer.as_str()))
     }
 
-    fn read_identifier(&mut self) -> LexResult<'input> {
+    fn read_identifier(&mut self) -> Token<'input> {
         let start = self.pos;
 
         while self.peek_char().is_some_and(|character| {
             !character.is_whitespace()
                 && !matches!(
                     character,
-                    ',' | '+' | '-' | '^' | '*' | '/' | '=' | '(' | ')' | '"' | '\''
+                    ',' | '+' | '-' | '^' | '*' | '/' | '=' | '(' | ')' | '.' | '"' | '\''
                 )
         }) {
             self.next_char();
@@ -267,9 +269,9 @@ impl<'input> Lexer<'input> {
 
         let identifier = &self.input[start..self.pos];
         match identifier {
-            "true" => Ok(Token::Bool(true)),
-            "false" => Ok(Token::Bool(false)),
-            _ => Ok(Token::Id(identifier)),
+            "true" => Token::Bool(true),
+            "false" => Token::Bool(false),
+            _ => Token::Id(identifier),
         }
     }
 }
@@ -285,6 +287,7 @@ pub enum Token<'a> {
     Eq,
     LParen,
     RParen,
+    Dot,
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -309,6 +312,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn expect_tokens() {
         let cases = vec![
             (
@@ -331,7 +335,7 @@ mod tests {
                     Token::Int(0),
                     Token::Int(42),
                     Token::Int(123),
-                    Token::Int(123456789),
+                    Token::Int(123_456_789),
                 ],
             ),
             (
@@ -376,12 +380,12 @@ mod tests {
             ),
             (
                 "line and block comments",
-                r#"1// line comment 2 3 4
+                "1// line comment 2 3 4
                    /* block
                    1 2 3
                    4 5 6
                    comment */2
-                   3 /* inline block */ 4"#,
+                         3 /* inline block */ 4",
                 vec![
                     Token::Int(1),
                     Token::Sep,
@@ -395,7 +399,7 @@ mod tests {
         ];
 
         for (label, input, expected) in cases {
-            assert_eq!(lex(input), expected, "{label}: input was {input:?}")
+            assert_eq!(lex(input), expected, "{label}: input was {input:?}");
         }
     }
 

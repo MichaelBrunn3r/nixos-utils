@@ -1,6 +1,8 @@
+#![allow(clippy::missing_errors_doc)]
+
 use std::iter::Peekable;
 
-use crate::ast::{AST, BinaryOp, Expr, KV, UnaryOp};
+use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Statement, UnaryOp, Use};
 use crate::lexer::{Lexer, LexerError, Token};
 
 //region Parser
@@ -9,6 +11,7 @@ pub struct Parser<'input> {
 }
 
 impl<'input> Parser<'input> {
+    #[must_use]
     pub fn new(input: &'input str) -> Self {
         Self {
             tokens: Lexer::new(input).peekable(),
@@ -16,41 +19,73 @@ impl<'input> Parser<'input> {
     }
 
     pub fn parse(mut self) -> Result<AST<'input>, ParseError> {
-        let mut pairs = Vec::new();
+        let mut statements = Vec::new();
         self.skip_separators()?;
 
         while self.tokens.peek().is_some() {
-            pairs.push(self.parse_kv()?);
+            statements.push(self.parse_statement()?);
             self.skip_separators()?;
         }
 
-        Ok(AST { pairs })
+        Ok(AST { statements })
     }
 
-    fn parse_kv(&mut self) -> Result<KV<'input>, ParseError> {
-        let key = match self.next_token()? {
-            Token::Id(key) => key,
-            Token::Str(key) => key,
-            token => Err(self.unexpected(token, "expected a key"))?,
+    fn parse_statement(&mut self) -> Result<Statement<'input>, ParseError> {
+        if matches!(self.tokens.peek(), Some(Ok(Token::Id("use")))) {
+            return self.parse_use();
+        }
+
+        let expression = self.parse_expression(0)?;
+
+        if !matches!(self.tokens.peek(), Some(Ok(Token::Eq))) {
+            return Ok(Statement::Expr(expression));
+        }
+
+        let key = match expression {
+            Expr::Id(Identifier::Simple(key)) | Expr::Str(key) => key,
+            expression => {
+                return Err(ParseError {
+                    line: 0,
+                    message: format!("expected a key: {expression:?}"),
+                });
+            }
         };
 
-        self.expect_next_token(Token::Eq)?;
-        let value = self.parse_value()?;
-
-        Ok(KV { key, expr: value })
+        self.next_token()?;
+        Ok(Statement::KV(KV {
+            key,
+            expr: self.parse_expression(0)?,
+        }))
     }
 
-    fn parse_value(&mut self) -> Result<Expr<'input>, ParseError> {
-        self.parse_expression(0)
+    fn parse_use(&mut self) -> Result<Statement<'input>, ParseError> {
+        self.next_token()?;
+        let mut path = vec![match self.next_token()? {
+            Token::Id(value) => value,
+            token => return Err(Self::unexpected(&token, "expected an identifier")),
+        }];
+        let mut wildcard = false;
+
+        while matches!(self.tokens.peek(), Some(Ok(Token::Dot))) {
+            self.next_token()?;
+            if matches!(self.tokens.peek(), Some(Ok(Token::Mul))) {
+                self.next_token()?;
+                wildcard = true;
+                break;
+            }
+            path.push(match self.next_token()? {
+                Token::Id(value) => value,
+                token => return Err(Self::unexpected(&token, "expected an identifier")),
+            });
+        }
+
+        Ok(Statement::Use(Use { path, wildcard }))
     }
 
     fn parse_expression(&mut self, min_binding_power: u8) -> Result<Expr<'input>, ParseError> {
         let mut left = self.parse_prefix()?;
 
-        loop {
-            let Some(Ok(token)) = self.tokens.peek() else {
-                break;
-            };
+        while let Some(Ok(token)) = self.tokens.peek() {
             let Some((left_binding_power, right_binding_power, operator)) =
                 Self::infix_binding_power(token)
             else {
@@ -74,21 +109,37 @@ impl<'input> Parser<'input> {
     }
 
     fn parse_prefix(&mut self) -> Result<Expr<'input>, ParseError> {
-        match self.next_token()? {
+        let token = self.next_token()?;
+        self.parse_prefix_token(token)
+    }
+
+    fn parse_prefix_token(&mut self, token: Token<'input>) -> Result<Expr<'input>, ParseError> {
+        match token {
             Token::Bool(value) => Ok(Expr::Bool(value)),
             Token::Int(value) => Ok(Expr::Int(value)),
             Token::Float(value) => Ok(Expr::Float(value)),
             Token::Str(value) => Ok(Expr::Str(value)),
             Token::Id(value) => {
+                let mut path = vec![value];
+                while matches!(self.tokens.peek(), Some(Ok(Token::Dot))) {
+                    self.next_token()?;
+                    path.push(match self.next_token()? {
+                        Token::Id(value) => value,
+                        token => return Err(Self::unexpected(&token, "expected an identifier")),
+                    });
+                }
+
                 if matches!(self.tokens.peek(), Some(Ok(Token::LParen))) {
-                    self.parse_call(value)
+                    self.parse_call(path)
+                } else if path.len() == 1 {
+                    Ok(Expr::Id(Identifier::Simple(value)))
                 } else {
-                    Ok(Expr::Id(value))
+                    Ok(Expr::Id(Identifier::Qualified(path)))
                 }
             }
             Token::Add => self.parse_unary(UnaryOp::Positive),
             Token::Sub => self.parse_unary(UnaryOp::Negative),
-            token => Err(self.unexpected(token, "expected an expression")),
+            token => Err(Self::unexpected(&token, "expected an expression")),
         }
     }
 
@@ -100,8 +151,8 @@ impl<'input> Parser<'input> {
         })
     }
 
-    fn parse_call(&mut self, name: &'input str) -> Result<Expr<'input>, ParseError> {
-        self.expect_next_token(Token::LParen)?;
+    fn parse_call(&mut self, path: Vec<&'input str>) -> Result<Expr<'input>, ParseError> {
+        self.expect_next_token(&Token::LParen)?;
         let mut arguments = Vec::new();
         self.skip_separators()?;
 
@@ -113,7 +164,7 @@ impl<'input> Parser<'input> {
                     break;
                 }
 
-                self.expect_next_token(Token::Sep)?;
+                self.expect_next_token(&Token::Sep)?;
                 self.skip_separators()?;
 
                 if matches!(self.tokens.peek(), Some(Ok(Token::RParen))) {
@@ -122,11 +173,11 @@ impl<'input> Parser<'input> {
             }
         }
 
-        self.expect_next_token(Token::RParen)?;
-        Ok(Expr::Call { name, arguments })
+        self.expect_next_token(&Token::RParen)?;
+        Ok(Expr::Call { path, arguments })
     }
 
-    fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {
+    const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {
         match token {
             Token::Add => Some((10, 11, BinaryOp::Add)),
             Token::Sub => Some((10, 11, BinaryOp::Sub)),
@@ -144,12 +195,12 @@ impl<'input> Parser<'input> {
         Ok(())
     }
 
-    fn expect_next_token(&mut self, expected: Token<'input>) -> Result<(), ParseError> {
+    fn expect_next_token(&mut self, expected: &Token<'input>) -> Result<(), ParseError> {
         let token = self.next_token()?;
-        if token == expected {
+        if token == *expected {
             Ok(())
         } else {
-            Err(self.unexpected(token, "unexpected token"))
+            Err(Self::unexpected(&token, "unexpected token"))
         }
     }
 
@@ -164,7 +215,7 @@ impl<'input> Parser<'input> {
             })
     }
 
-    fn unexpected(&self, token: Token<'input>, message: &str) -> ParseError {
+    fn unexpected(token: &Token<'input>, message: &str) -> ParseError {
         ParseError {
             line: 0,
             message: format!("{message}: {token:?}"),
@@ -192,6 +243,7 @@ impl From<LexerError> for ParseError {
 mod tests {
     use super::Parser;
     use crate::ast::test_utils::*;
+    use crate::ast::{Statement, Use};
 
     #[test]
     fn parses_key_value_pairs() {
@@ -200,8 +252,18 @@ mod tests {
             .expect("valid document");
 
         assert_pairs(
-            document,
+            &document,
             &[("a", int(1)), ("b", int(2)), ("key with spaces", int(3))],
+        );
+    }
+
+    #[test]
+    fn parses_expression_statements() {
+        let document = Parser::new("1 + 2 * 3").parse().expect("valid document");
+
+        assert_eq!(
+            document.statements,
+            vec![Statement::Expr(add(int(1), mul(int(2), int(3))))]
         );
     }
 
@@ -214,7 +276,7 @@ mod tests {
         .expect("valid document");
 
         assert_pairs(
-            document,
+            &document,
             &[
                 ("sum", add(int(1), int(2))),
                 ("difference", sub(int(5), int(2))),
@@ -235,11 +297,36 @@ mod tests {
             .expect("valid document");
 
         assert_pairs(
-            document,
+            &document,
             &[
                 ("value", call("foo", vec![int(1), int(2), int(3)])),
                 ("other", call("bar", vec![int(1), int(2), int(3)])),
             ],
+        );
+    }
+
+    #[test]
+    fn parses_use_statements() {
+        let document = Parser::new("use std\nuse std.sin\nuse std.*")
+            .parse()
+            .expect("valid imports");
+
+        assert_eq!(
+            document.statements,
+            vec![
+                Statement::Use(Use {
+                    path: vec!["std"],
+                    wildcard: false,
+                }),
+                Statement::Use(Use {
+                    path: vec!["std", "sin"],
+                    wildcard: false,
+                }),
+                Statement::Use(Use {
+                    path: vec!["std"],
+                    wildcard: true,
+                }),
+            ]
         );
     }
 }
