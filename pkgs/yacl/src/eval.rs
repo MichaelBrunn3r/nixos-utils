@@ -1,0 +1,377 @@
+use std::collections::BTreeMap;
+
+use crate::{
+    ast::{AST, BinaryOp, Expr, UnaryOp},
+    builtins,
+};
+
+pub fn evaluate_ast<'input>(
+    ast: &AST<'input>,
+    scope: &Scope<'input>,
+) -> Result<Document<'input>, EvalError> {
+    let mut document = Document::new();
+
+    for pair in &ast.pairs {
+        let value = evaluate_expr(&pair.expr, scope)?;
+
+        if document.insert(pair.key, value).is_some() {
+            return Err(EvalError::DuplicateKey(pair.key.to_owned()));
+        }
+    }
+
+    Ok(document)
+}
+
+fn evaluate_expr<'input>(
+    node: &Expr<'input>,
+    scope: &Scope<'input>,
+) -> Result<Value<'input>, EvalError> {
+    match node {
+        Expr::Bool(value) => Ok(Value::Bool(*value)),
+        Expr::Int(value) => Ok(Value::Int(*value)),
+        Expr::Float(value) => Ok(Value::Float(*value)),
+        Expr::Str(value) => Ok(Value::Str(value)),
+        Expr::Id(name) => match scope.symbols.get(name) {
+            Some(Symbol::Value(value)) => Ok(value.clone()),
+            Some(Symbol::Function(_)) => Err(EvalError::UnknownIdentifier((*name).to_owned())),
+            None => Err(EvalError::UnknownIdentifier((*name).to_owned())),
+        },
+        Expr::Unary { op, value } => evaluate_unary(op, evaluate_expr(value, scope)?),
+        Expr::Binary { left, op, right } => evaluate_binary(
+            op,
+            evaluate_expr(left, scope)?,
+            evaluate_expr(right, scope)?,
+        ),
+        Expr::Call { name, arguments } => evaluate_call(name, arguments, scope),
+    }
+}
+
+fn evaluate_call<'input>(
+    name: &str,
+    arguments: &[Expr<'input>],
+    scope: &Scope<'input>,
+) -> Result<Value<'input>, EvalError> {
+    let function = match scope.symbols.get(name) {
+        Some(Symbol::Function(function)) => *function,
+        Some(Symbol::Value(_)) | None => return Err(EvalError::UnknownFunction(name.to_owned())),
+    };
+    let arguments = arguments
+        .iter()
+        .map(|argument| evaluate_expr(argument, scope))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    function(&arguments)
+}
+
+fn evaluate_unary<'input>(
+    operator: &UnaryOp,
+    value: Value<'input>,
+) -> Result<Value<'input>, EvalError> {
+    match (operator, value) {
+        (UnaryOp::Positive, value @ Value::Int(_))
+        | (UnaryOp::Positive, value @ Value::Float(_)) => Ok(value),
+        (UnaryOp::Negative, Value::Int(value)) => value
+            .checked_neg()
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (UnaryOp::Negative, Value::Float(value)) => Ok(Value::Float(-value)),
+        (UnaryOp::Positive, _) => Err(EvalError::TypeMismatch),
+        (UnaryOp::Negative, _) => Err(EvalError::TypeMismatch),
+    }
+}
+
+fn evaluate_binary<'input>(
+    op: &BinaryOp,
+    left: Value<'input>,
+    right: Value<'input>,
+) -> Result<Value<'input>, EvalError> {
+    match (op, left, right) {
+        (BinaryOp::Add, Value::Int(left), Value::Int(right)) => left
+            .checked_add(right)
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (BinaryOp::Sub, Value::Int(left), Value::Int(right)) => left
+            .checked_sub(right)
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (BinaryOp::Mul, Value::Int(left), Value::Int(right)) => left
+            .checked_mul(right)
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (BinaryOp::Div, Value::Int(_), Value::Int(0)) => Err(EvalError::DivisionByZero),
+        (BinaryOp::Div, Value::Int(left), Value::Int(right)) => left
+            .checked_div(right)
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (BinaryOp::Exp, Value::Int(left), Value::Int(right)) if right >= 0 => left
+            .checked_pow(right as u32)
+            .map(Value::Int)
+            .ok_or(EvalError::Overflow),
+        (BinaryOp::Exp, Value::Int(_), Value::Int(_)) => Err(EvalError::TypeMismatch),
+        (BinaryOp::Div, Value::Float(_), Value::Float(right)) if right == 0.0 => {
+            Err(EvalError::DivisionByZero)
+        }
+        (BinaryOp::Add, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
+        (BinaryOp::Sub, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
+        (BinaryOp::Mul, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
+        (BinaryOp::Div, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
+        (BinaryOp::Exp, Value::Float(left), Value::Float(right)) => {
+            Ok(Value::Float(left.powf(right)))
+        }
+        (operator, Value::Int(left), Value::Float(right)) => {
+            evaluate_binary(operator, Value::Float(left as f64), Value::Float(right))
+        }
+        (operator, Value::Float(left), Value::Int(right)) => {
+            evaluate_binary(operator, Value::Float(left), Value::Float(right as f64))
+        }
+        _ => Err(EvalError::TypeMismatch),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvalError {
+    DuplicateKey(String),
+    DivisionByZero,
+    Overflow,
+    TypeMismatch,
+    UnknownIdentifier(String),
+    UnknownFunction(String),
+}
+
+pub type Document<'input> = Map<'input>;
+pub type Map<'input> = BTreeMap<&'input str, Value<'input>>;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Value<'input> {
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(&'input str),
+    Map(Map<'input>),
+}
+
+//region Scope
+pub struct Scope<'input> {
+    symbols: BTreeMap<&'input str, Symbol<'input>>,
+}
+
+type BuiltinFunction = for<'input> fn(&[Value<'input>]) -> Result<Value<'input>, EvalError>;
+
+pub enum Symbol<'input> {
+    Value(Value<'input>),
+    Function(BuiltinFunction),
+}
+
+impl<'input> Scope<'input> {
+    pub fn global() -> Self {
+        let mut symbols = BTreeMap::new();
+        symbols.insert("pi", Symbol::Value(builtins::PI));
+        symbols.insert("abs", Symbol::Function(builtins::abs as BuiltinFunction));
+        symbols.insert("acos", Symbol::Function(builtins::acos as BuiltinFunction));
+        symbols.insert("asin", Symbol::Function(builtins::asin as BuiltinFunction));
+        symbols.insert("atan", Symbol::Function(builtins::atan as BuiltinFunction));
+        symbols.insert(
+            "atan2",
+            Symbol::Function(builtins::atan2 as BuiltinFunction),
+        );
+        symbols.insert(
+            "clamp",
+            Symbol::Function(builtins::clamp as BuiltinFunction),
+        );
+        symbols.insert("sin", Symbol::Function(builtins::sin as BuiltinFunction));
+        symbols.insert("cos", Symbol::Function(builtins::cos as BuiltinFunction));
+        symbols.insert(
+            "floor",
+            Symbol::Function(builtins::floor as BuiltinFunction),
+        );
+        symbols.insert("ceil", Symbol::Function(builtins::ceil as BuiltinFunction));
+        symbols.insert(
+            "round",
+            Symbol::Function(builtins::round as BuiltinFunction),
+        );
+        symbols.insert(
+            "is_finite",
+            Symbol::Function(builtins::is_finite as BuiltinFunction),
+        );
+        symbols.insert(
+            "is_infinite",
+            Symbol::Function(builtins::is_infinite as BuiltinFunction),
+        );
+        symbols.insert(
+            "is_nan",
+            Symbol::Function(builtins::is_nan as BuiltinFunction),
+        );
+        symbols.insert("ln", Symbol::Function(builtins::ln as BuiltinFunction));
+        symbols.insert("log", Symbol::Function(builtins::log as BuiltinFunction));
+        symbols.insert("log2", Symbol::Function(builtins::log2 as BuiltinFunction));
+        symbols.insert(
+            "log10",
+            Symbol::Function(builtins::log10 as BuiltinFunction),
+        );
+        symbols.insert("max", Symbol::Function(builtins::max as BuiltinFunction));
+        symbols.insert("min", Symbol::Function(builtins::min as BuiltinFunction));
+        symbols.insert("sqrt", Symbol::Function(builtins::sqrt as BuiltinFunction));
+        symbols.insert("tan", Symbol::Function(builtins::tan as BuiltinFunction));
+        Self { symbols }
+    }
+}
+
+//endregion Scope
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::test_utils::*;
+    use super::*;
+    use crate::parser::Parser;
+
+    fn evaluate(input: &str) -> Result<super::Document<'_>, EvalError> {
+        let ast = Parser::new(input).parse().expect("valid input");
+        let scope = Scope::global();
+        evaluate_ast(&ast, &scope)
+    }
+
+    fn expect_document(label: &str, input: &str, expected: &[(&str, Value<'_>)]) {
+        let document = evaluate(input)
+            .unwrap_or_else(|error| panic!("{label}: expected valid document, got {error:?}"));
+
+        assert_entries(&document, expected);
+    }
+
+    #[test]
+    fn evaluates_documents() {
+        let cases = vec![
+            (
+                "literal entries",
+                "count = 3",
+                vec![("count", Value::Int(3))],
+            ),
+            (
+                "boolean literal",
+                "enabled = true",
+                vec![("enabled", Value::Bool(true))],
+            ),
+            (
+                "nested numeric expression",
+                "result = 1 + 2 * 3",
+                vec![("result", Value::Int(7))],
+            ),
+            (
+                "unary and mixed numeric expressions",
+                "negative = -2\nmixed = 1 + 2.5",
+                vec![("negative", Value::Int(-2)), ("mixed", Value::Float(3.5))],
+            ),
+        ];
+
+        for (label, input, expected) in cases {
+            expect_document(label, input, &expected);
+        }
+    }
+
+    #[test]
+    fn rejects_division_by_zero() {
+        assert_eq!(evaluate("result = 1 / 0"), Err(EvalError::DivisionByZero));
+    }
+
+    #[test]
+    fn expect_err_msg() {
+        let cases = vec![
+            (
+                "division by zero",
+                "valid = 1\nresult = 1 / 0",
+                EvalError::DivisionByZero,
+            ),
+            (
+                "integer overflow",
+                "valid = 1\nresult = 9223372036854775807 + 1",
+                EvalError::Overflow,
+            ),
+            (
+                "type mismatch",
+                "valid = 1\nresult = true + 1",
+                EvalError::TypeMismatch,
+            ),
+            (
+                "unsupported expression",
+                "valid = 1\nresult = unknown",
+                EvalError::UnknownIdentifier("unknown".to_owned()),
+            ),
+            (
+                "unknown function",
+                "result = missing(1)",
+                EvalError::UnknownFunction("missing".to_owned()),
+            ),
+            (
+                "duplicate key",
+                "result = 1\nresult = 2",
+                EvalError::DuplicateKey("result".to_owned()),
+            ),
+        ];
+
+        for (label, input, expected) in cases {
+            assert_eq!(
+                evaluate(input),
+                Err(expected),
+                "{label}: input was {input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_keys() {
+        assert_duplicate_key(evaluate("count = 1\ncount = 2"), "count");
+    }
+
+    #[test]
+    fn asserts_nested_entries_with_dotted_paths() {
+        let mut database = BTreeMap::new();
+        database.insert("host", Value::Str("localhost"));
+
+        let mut server = BTreeMap::new();
+        server.insert("database", Value::Map(database));
+
+        let mut document = BTreeMap::new();
+        document.insert("server", Value::Map(server));
+
+        super::test_utils::assert_entries(
+            &document,
+            &[("server.database.host", Value::Str("localhost"))],
+        );
+    }
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
+
+    pub fn assert_entries(document: &Document<'_>, expected: &[(&str, Value<'_>)]) {
+        for (key, value) in expected {
+            assert_eq!(value_at_path(document, key), Some(value));
+        }
+    }
+
+    pub fn assert_duplicate_key(result: Result<Document<'_>, EvalError>, key: &str) {
+        assert_eq!(result, Err(EvalError::DuplicateKey(key.to_owned())));
+    }
+
+    fn value_at_path<'document, 'input>(
+        document: &'document Document<'input>,
+        path: &str,
+    ) -> Option<&'document Value<'input>> {
+        let mut value = None;
+
+        for (index, segment) in path.split('.').enumerate() {
+            value = if index == 0 {
+                document.get(segment)
+            } else {
+                match value? {
+                    Value::Map(map) => map.get(segment),
+                    _ => return None,
+                }
+            };
+        }
+
+        value
+    }
+}
