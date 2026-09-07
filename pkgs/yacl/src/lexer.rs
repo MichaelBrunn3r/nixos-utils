@@ -305,78 +305,23 @@ pub type LexResult<'input> = Result<Token<'input>, LexerError>;
 
 #[cfg(test)]
 mod tests {
-    use super::{Lexer, Token};
+    use insta::assert_snapshot;
 
-    fn lex(input: &str) -> Vec<Token<'_>> {
-        Lexer::new(input).map(Result::unwrap).collect()
-    }
+    use super::Lexer;
 
     #[test]
     #[allow(clippy::approx_constant)]
-    fn expect_tokens() {
+    fn tokens() {
         let cases = vec![
-            (
-                "operators",
-                "+ - * / ^ ** =",
-                vec![
-                    Token::Add,
-                    Token::Sub,
-                    Token::Mul,
-                    Token::Div,
-                    Token::Exp,
-                    Token::Exp,
-                    Token::Eq,
-                ],
-            ),
-            (
-                "integer",
-                "0 42 0000123 123456789",
-                vec![
-                    Token::Int(0),
-                    Token::Int(42),
-                    Token::Int(123),
-                    Token::Int(123_456_789),
-                ],
-            ),
-            (
-                "float",
-                "3.14 -0.5 1.0",
-                vec![
-                    Token::Float(3.14),
-                    Token::Sub,
-                    Token::Float(0.5),
-                    Token::Float(1.0),
-                ],
-            ),
-            (
-                "number separators",
-                "1_000 3'000.14 1._000",
-                vec![Token::Int(1_000), Token::Float(3_000.14), Token::Float(1.0)],
-            ),
-            (
-                "identifiers around operators",
-                "foo + bar/baz",
-                vec![
-                    Token::Id("foo"),
-                    Token::Add,
-                    Token::Id("bar"),
-                    Token::Div,
-                    Token::Id("baz"),
-                ],
-            ),
-            (
-                "single quote strings and number separators",
-                "'text' 1'000",
-                vec![Token::Str("text"), Token::Int(1_000)],
-            ),
+            ("operators", "+ - * / ^ ** ="),
+            ("integer", "0 42 0000123 123456789"),
+            ("float", "3.14 -0.5 1.0"),
+            ("number separators", "1_000 3'000.14 1._000"),
+            ("identifiers around operators", "foo + bar/baz"),
+            ("single quote strings and number separators", "'text' 1'000"),
             (
                 "strings",
                 r#"'single' "double quote" "string // containing /* comments */" "#,
-                vec![
-                    Token::Str("single"),
-                    Token::Str("double quote"),
-                    Token::Str("string // containing /* comments */"),
-                ],
             ),
             (
                 "line and block comments",
@@ -386,52 +331,43 @@ mod tests {
                    4 5 6
                    comment */2
                          3 /* inline block */ 4",
-                vec![
-                    Token::Int(1),
-                    Token::Sep,
-                    Token::Sep,
-                    Token::Int(2),
-                    Token::Sep,
-                    Token::Int(3),
-                    Token::Int(4),
-                ],
             ),
         ];
 
-        for (label, input, expected) in cases {
-            assert_eq!(lex(input), expected, "{label}: input was {input:?}");
-        }
+        let cases = cases
+            .into_iter()
+            .map(|(label, input)| {
+                let tokens: Vec<_> = Lexer::new(input).map(Result::unwrap).collect();
+                format!("{label}\ninput: `{input}`\ntokens: {tokens:?}")
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        assert_snapshot!(cases);
     }
 
     #[test]
-    fn expect_err_msg() {
+    fn errors() {
         let cases = vec![
-            ("integer overflow", "9223372036854775808", "invalid integer"),
-            ("trailing num separator", "100_", "invalid number separator"),
-            (
-                "num separator sequence",
-                "1__000",
-                "invalid number separator",
-            ),
-            (
-                "heterogenous num separator sequence",
-                "1_'000",
-                "invalid number separator",
-            ),
-            (
-                "unterminated string",
-                "\"unterminated",
-                "unterminated string",
-            ),
+            ("integer overflow", "9223372036854775808"),
+            ("trailing num separator", "100_"),
+            ("num separator sequence", "1__000"),
+            ("heterogenous num separator sequence", "1_'000"),
+            ("unterminated string", "\"unterminated"),
         ];
 
-        for (label, input, expected) in cases {
-            let error = Lexer::new(input)
-                .next()
-                .expect("expected a lexer result")
-                .expect_err("expected a lexer error");
+        let cases = cases
+            .into_iter()
+            .map(|(label, input)| {
+                let error = Lexer::new(input)
+                    .next()
+                    .expect("expected a lexer result")
+                    .expect_err("expected a lexer error");
+                format!("{label}\ninput: `{input}`\nerror: {}", error.message)
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
 
-            assert_eq!(error.message, expected, "{label}: input was {input:?}");
-        }
+        assert_snapshot!(cases);
     }
 }

@@ -1,6 +1,6 @@
 use std::{env, fs, process};
 
-use yacl::{eval::Scope, eval::evaluate_ast, parser::Parser};
+use yacl::{eval::evaluate_ast, parser::Parser, scope::Scope};
 
 fn main() {
     if let Err(message) = run() {

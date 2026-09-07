@@ -218,11 +218,11 @@ fn round_value<'input>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{eval::evaluate_ast, parser::Parser};
+    use crate::{eval::evaluate_ast, parser::Parser, scope::Scope};
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = crate::eval::Scope::root();
+        let scope = Scope::root();
         evaluate_ast(&ast, &scope)
     }
 

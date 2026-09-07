@@ -1,0 +1,40 @@
+---
+source: pkgs/yacl/src/lexer.rs
+expression: cases
+---
+operators
+input: `+ - * / ^ ** =`
+tokens: [Add, Sub, Mul, Div, Exp, Exp, Eq]
+
+integer
+input: `0 42 0000123 123456789`
+tokens: [Int(0), Int(42), Int(123), Int(123456789)]
+
+float
+input: `3.14 -0.5 1.0`
+tokens: [Float(3.14), Sub, Float(0.5), Float(1.0)]
+
+number separators
+input: `1_000 3'000.14 1._000`
+tokens: [Int(1000), Float(3000.14), Float(1.0)]
+
+identifiers around operators
+input: `foo + bar/baz`
+tokens: [Id("foo"), Add, Id("bar"), Div, Id("baz")]
+
+single quote strings and number separators
+input: `'text' 1'000`
+tokens: [Str("text"), Int(1000)]
+
+strings
+input: `'single' "double quote" "string // containing /* comments */" `
+tokens: [Str("single"), Str("double quote"), Str("string // containing /* comments */")]
+
+line and block comments
+input: `1// line comment 2 3 4
+                   /* block
+                   1 2 3
+                   4 5 6
+                   comment */2
+                         3 /* inline block */ 4`
+tokens: [Int(1), Sep, Sep, Int(2), Sep, Int(3), Int(4)]

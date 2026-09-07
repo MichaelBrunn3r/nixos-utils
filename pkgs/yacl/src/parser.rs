@@ -241,92 +241,61 @@ impl From<LexerError> for ParseError {
 
 #[cfg(test)]
 mod tests {
+    use insta::assert_snapshot;
+
     use super::Parser;
-    use crate::ast::test_utils::*;
-    use crate::ast::{Statement, Use};
+    use crate::test_utils::dedent;
 
     #[test]
-    fn parses_key_value_pairs() {
-        let document = Parser::new("a = 1\nb=2\n\"key with spaces\" = 3")
-            .parse()
-            .expect("valid document");
+    fn parses_cases() {
+        let cases = vec![
+            (
+                "key value pairs",
+                "a = 1
+                 b=2
+                 \"key with spaces\" = 3",
+            ),
+            ("expression statements", "1 + 2 * 3"),
+            (
+                "math expressions",
+                "sum = 1 + 2
+                 difference = 5 - 2
+                 product = 2 * 3
+                 quotient = 8 / 2
+                 precedence = 1 + 2 * 3
+                 power = 2 ^ 3 ^ 4
+                 positive = +1
+                 negative = -2 ^ 2",
+            ),
+            (
+                "function calls",
+                "inline = foo(1, 2,3)
+                 multiline = bar(
+                    1
+                    2,
+                    3
+                 )",
+            ),
+            (
+                "use statements",
+                "use std
+                 use std.sin
+                 use std.*",
+            ),
+        ];
 
-        assert_pairs(
-            &document,
-            &[("a", int(1)), ("b", int(2)), ("key with spaces", int(3))],
-        );
-    }
+        let cases = cases
+            .into_iter()
+            .map(|(label, input)| {
+                let input = dedent(input);
+                let document = Parser::new(&input).parse().expect("valid document");
+                let input = input.replace('\n', "\n        ");
+                let ast = document.pretty_string();
+                format!("{label}\ninput: `{input}`\nast: {ast}")
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
 
-    #[test]
-    fn parses_expression_statements() {
-        let document = Parser::new("1 + 2 * 3").parse().expect("valid document");
-
-        assert_eq!(
-            document.statements,
-            vec![Statement::Expr(add(int(1), mul(int(2), int(3))))]
-        );
-    }
-
-    #[test]
-    fn parses_math_expressions() {
-        let document = Parser::new(
-            "sum = 1 + 2\ndifference = 5 - 2\nproduct = 2 * 3\nquotient = 8 / 2\nprecedence = 1 + 2 * 3\npower = 2 ^ 3 ^ 4\npositive = +1\nnegative = -2 ^ 2",
-        )
-        .parse()
-        .expect("valid document");
-
-        assert_pairs(
-            &document,
-            &[
-                ("sum", add(int(1), int(2))),
-                ("difference", sub(int(5), int(2))),
-                ("product", mul(int(2), int(3))),
-                ("quotient", div(int(8), int(2))),
-                ("precedence", add(int(1), mul(int(2), int(3)))),
-                ("power", exp(int(2), exp(int(3), int(4)))),
-                ("positive", op_pos(int(1))),
-                ("negative", op_neg(exp(int(2), int(2)))),
-            ],
-        );
-    }
-
-    #[test]
-    fn parses_function_calls_with_comma_or_newline_separators() {
-        let document = Parser::new("value = foo(1, 2,3)\nother = bar(1\n2, 3\n)")
-            .parse()
-            .expect("valid document");
-
-        assert_pairs(
-            &document,
-            &[
-                ("value", call("foo", vec![int(1), int(2), int(3)])),
-                ("other", call("bar", vec![int(1), int(2), int(3)])),
-            ],
-        );
-    }
-
-    #[test]
-    fn parses_use_statements() {
-        let document = Parser::new("use std\nuse std.sin\nuse std.*")
-            .parse()
-            .expect("valid imports");
-
-        assert_eq!(
-            document.statements,
-            vec![
-                Statement::Use(Use {
-                    path: vec!["std"],
-                    wildcard: false,
-                }),
-                Statement::Use(Use {
-                    path: vec!["std", "sin"],
-                    wildcard: false,
-                }),
-                Statement::Use(Use {
-                    path: vec!["std"],
-                    wildcard: true,
-                }),
-            ]
-        );
+        assert_snapshot!(cases);
     }
 }

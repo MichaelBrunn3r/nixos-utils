@@ -1,0 +1,23 @@
+---
+source: pkgs/yacl/src/lexer.rs
+expression: cases
+---
+integer overflow
+input: `9223372036854775808`
+error: invalid integer
+
+trailing num separator
+input: `100_`
+error: invalid number separator
+
+num separator sequence
+input: `1__000`
+error: invalid number separator
+
+heterogenous num separator sequence
+input: `1_'000`
+error: invalid number separator
+
+unterminated string
+input: `"unterminated`
+error: unterminated string
