@@ -8,8 +8,6 @@ pub struct Scope<'input> {
     parent: Option<Rc<Self>>,
 }
 
-pub type BuiltinFunction = for<'input> fn(&[Value<'input>]) -> Result<Value<'input>, EvalError>;
-
 impl<'input> Scope<'input> {
     #[must_use]
     pub fn from_values(values: impl IntoIterator<Item = (&'input str, Value<'input>)>) -> Self {

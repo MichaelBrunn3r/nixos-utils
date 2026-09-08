@@ -1,6 +1,9 @@
 use std::{env, fs, process};
 
-use djson::{eval::evaluate_ast, parser::Parser, stdlib};
+use djson::{
+    eval::{evaluate_ast, stdlib},
+    parser::Parser,
+};
 
 fn main() {
     if let Err(message) = run() {

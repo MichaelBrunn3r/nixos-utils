@@ -8,8 +8,7 @@ pub mod string;
 
 use std::rc::Rc;
 
-use crate::eval::{EvalError, Value};
-use crate::scope::Scope;
+use crate::eval::{EvalError, Value, scope::Scope};
 
 /// Constructs the standard lexical prelude.
 ///

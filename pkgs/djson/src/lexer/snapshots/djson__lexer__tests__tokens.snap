@@ -1,5 +1,5 @@
 ---
-source: pkgs/djson/src/lexer.rs
+source: pkgs/djson/src/lexer/mod.rs
 expression: cases
 ---
 operators

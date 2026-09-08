@@ -3,7 +3,7 @@
 use std::iter::Peekable;
 
 use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp};
-use crate::lexer::{Lexer, LexerError, Token};
+use crate::lexer::{Lexer, LexerError, token::Token};
 
 //region Parser
 pub struct Parser<'input> {
@@ -311,7 +311,7 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::Parser;
-    use crate::ast::{Expr, Identifier, Let, Statement};
+    use crate::ast::{Expr, Identifier, KV, Let, Statement};
     use crate::test_utils::dedent;
 
     #[test]
@@ -375,7 +375,7 @@ mod tests {
             ast.statements,
             vec![Statement::Let(Let {
                 name: "value",
-                expr: Expr::Map(vec![crate::ast::KV {
+                expr: Expr::Map(vec![KV {
                     key: "nested",
                     expr: Expr::Int(7),
                 }]),
@@ -387,7 +387,7 @@ mod tests {
             .expect("let binding followed by a document field should parse");
         assert!(matches!(
             &ast.statements[1],
-            Statement::KV(crate::ast::KV {
+            Statement::KV(KV {
                 key: "result",
                 expr: Expr::Id(Identifier::Simple("value")),
             })
@@ -399,7 +399,7 @@ mod tests {
         let ast = Parser::new("{let : 1}").parse().expect("valid map");
         assert_eq!(
             ast.statements,
-            vec![Statement::Expr(Expr::Map(vec![crate::ast::KV {
+            vec![Statement::Expr(Expr::Map(vec![KV {
                 key: "let",
                 expr: Expr::Int(1),
             }]))]
@@ -413,7 +413,7 @@ mod tests {
             .expect("valid top-level field");
         assert_eq!(
             ast.statements,
-            vec![Statement::KV(crate::ast::KV {
+            vec![Statement::KV(KV {
                 key: "let",
                 expr: Expr::Id(Identifier::Simple("value")),
             })]

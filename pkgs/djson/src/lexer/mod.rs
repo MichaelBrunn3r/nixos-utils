@@ -1,5 +1,8 @@
 #![allow(clippy::cast_precision_loss)]
 
+use crate::lexer::token::Token;
+pub mod token;
+
 pub struct Lexer<'input> {
     input: &'input str,
     pos: usize,
@@ -312,31 +315,6 @@ impl<'input> Lexer<'input> {
             _ => Token::Id(identifier),
         }
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Token<'a> {
-    Sep,
-    Add,
-    Sub,
-    Exp,
-    Mul,
-    Div,
-    Colon,
-    Eq,
-    Equal,
-    LParen,
-    RParen,
-    LBracket,
-    RBracket,
-    LBrace,
-    RBrace,
-    Dot,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    Str(&'a str),
-    Id(&'a str),
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -278,11 +278,14 @@ pub fn reverse<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eva
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{eval::evaluate_ast, parser::Parser};
+    use crate::{
+        eval::{evaluate_ast, stdlib},
+        parser::Parser,
+    };
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = crate::stdlib::new();
+        let scope = stdlib::new();
         evaluate_ast(&ast, &scope)
     }
 
