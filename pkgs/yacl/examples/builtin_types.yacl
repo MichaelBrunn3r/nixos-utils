@@ -37,14 +37,30 @@ float_methods: [
 
 // string
 string_methods: [
-	"héllo".len_chars()             == 5,       // Unicode scalar count
-	"héllo".len_bytes()             == 6,       // UTF-8 byte count
-	"".is_empty()                   == true,    // empty-value check
-	"hello".is_ascii()              == true,    // ASCII check
-	"hello world".contains("world") == true,    // substring check
-	"hello".starts_with("he")       == true,    // prefix check
-	"hello".ends_with("lo")         == true,    // suffix check
-	"hello hello".count("hello")    == 2,       // non-overlapping match count
+	"héllo".len_chars()             			== 5,       	// Unicode scalar count
+	"héllo".len_bytes()             			== 6,       	// UTF-8 byte count
+	"".is_empty()                   			== true,    	// empty-value check
+	" \t\n".is_blank()              			== true,    	// whitespace-only check
+	"hello".is_ascii()              			== true,    	// ASCII check
+	"hello world".contains("world") 			== true,    	// substring check
+	"hello".starts_with("he")       			== true,    	// prefix check
+	"hello".ends_with("lo")         			== true,    	// suffix check
+	"hello".remove_prefix("he")     			== "llo",   	// remove a prefix
+	"hello".remove_suffix("lo")     			== "hel",   	// remove a suffix
+	"hello hello".count("hello")    			== 2,       	// non-overlapping match count
+	"héllo".find("ll")              			== 2,       	// character index of a match
+	"a,b,c".split(",").equals(["a", "b", "c"]), 				// split into parts
+	"one\ntwo".lines().equals(["one", "two"]), 					// split into lines
+	"  hello  ".trim()               			== "hello",  	// remove surrounding whitespace
+	"  hello  ".trim_start()         			== "hello  ", 	// remove leading whitespace
+	"  hello  ".trim_end()           			== "  hello", 	// remove trailing whitespace
+	"héllo".uppercase()             			== "HÉLLO", 	// creates an uppercase string
+	"HÉLLO".lowercase()             			== "héllo",  	// creates a lowercase string
+	"hello hello".replace("hello", "hi") 		== "hi hi", 	// replace matches
+	"ha".repeat(3)                  			== "hahaha", 	// repeat a string
+	"7".pad_start(3, "0")           			== "007",    	// pad at the start
+	"7".pad_end(3, "0")             			== "700",    	// pad at the end
+	"héllo".reverse()                			== "olléh",  	// reverse Unicode characters
 ].all()
 
 // list

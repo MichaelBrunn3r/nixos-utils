@@ -33,9 +33,9 @@ pub fn new() -> Rc<Scope<'static>> {
 /// [`EvalError::TypeMismatch`] when the argument is not a string.
 pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
     match arguments {
-        [Value::Str("std")] => Ok(Value::Map(std_map())),
-        [Value::Str("types")] => Ok(Value::Map(types_map())),
-        [Value::Str(name)] => Err(EvalError::UnknownModule((*name).to_owned())),
+        [Value::Str(name)] if name == "std" => Ok(Value::Map(std_map())),
+        [Value::Str(name)] if name == "types" => Ok(Value::Map(types_map())),
+        [Value::Str(name)] => Err(EvalError::UnknownModule(name.to_string())),
         _ => Err(EvalError::TypeMismatch),
     }
 }

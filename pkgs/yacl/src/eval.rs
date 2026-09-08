@@ -4,7 +4,7 @@
     clippy::cast_possible_truncation
 )]
 
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::{
     ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
@@ -63,7 +63,7 @@ fn evaluate_expr<'input>(
         Expr::Bool(value) => Ok(Value::Bool(*value)),
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
-        Expr::Str(value) => Ok(Value::Str(value)),
+        Expr::Str(value) => Ok(Value::Str(decode_string(value).into())),
         Expr::List(values) => values
             .iter()
             .map(|value| evaluate_expr(value, scope))
@@ -95,6 +95,33 @@ fn evaluate_expr<'input>(
         ),
         Expr::Call { callee, arguments } => evaluate_call(callee, arguments, scope),
     }
+}
+
+fn decode_string(value: &str) -> String {
+    let mut decoded = String::with_capacity(value.len());
+    let mut characters = value.chars();
+
+    while let Some(character) = characters.next() {
+        if character != '\\' {
+            decoded.push(character);
+            continue;
+        }
+
+        match characters.next() {
+            Some('n') => decoded.push('\n'),
+            Some('r') => decoded.push('\r'),
+            Some('t') => decoded.push('\t'),
+            Some('\\') | None => decoded.push('\\'),
+            Some('"') => decoded.push('"'),
+            Some('\'') => decoded.push('\''),
+            Some(next) => {
+                decoded.push('\\');
+                decoded.push(next);
+            }
+        }
+    }
+
+    decoded
 }
 
 fn evaluate_access<'input>(
@@ -259,7 +286,7 @@ pub enum Value<'input> {
     Bool(bool),
     Int(i64),
     Float(f64),
-    Str(&'input str),
+    Str(Cow<'input, str>),
     List(Vec<Self>),
     Map(Map<'input>),
     Function(BuiltinFunction),
@@ -422,6 +449,18 @@ mod tests {
     }
 
     #[test]
+    fn decodes_string_escapes() {
+        assert_eq!(
+            evaluate(r#""line\n\t\"quote\"\\path""#),
+            Ok(Value::Str("line\n\t\"quote\"\\path".into()))
+        );
+        assert_eq!(
+            evaluate(r#""unknown\q""#),
+            Ok(Value::Str(r"unknown\q".into()))
+        );
+    }
+
+    #[test]
     fn rejects_equality_for_unsupported_values() {
         assert_eq!(evaluate("[1] == [1]"), Err(EvalError::TypeMismatch));
     }
@@ -517,7 +556,7 @@ mod tests {
     #[test]
     fn asserts_nested_entries_with_dotted_paths() {
         let mut database = BTreeMap::new();
-        database.insert("host", Value::Str("localhost"));
+        database.insert("host", Value::Str(Cow::Borrowed("localhost")));
 
         let mut server = BTreeMap::new();
         server.insert("database", Value::Map(database));
@@ -527,7 +566,10 @@ mod tests {
 
         super::test_utils::assert_entries(
             &document,
-            &[("server.database.host", Value::Str("localhost"))],
+            &[(
+                "server.database.host",
+                Value::Str(Cow::Borrowed("localhost")),
+            )],
         );
     }
 }

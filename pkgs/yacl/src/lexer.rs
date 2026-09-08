@@ -167,6 +167,11 @@ impl<'input> Lexer<'input> {
                 self.next_char();
                 return Ok(Token::Str(&self.input[start..end]));
             }
+            if c == '\\' {
+                self.next_char();
+                self.next_char();
+                continue;
+            }
             self.next_char();
         }
 

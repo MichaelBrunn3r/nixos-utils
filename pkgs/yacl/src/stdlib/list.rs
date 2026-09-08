@@ -7,6 +7,7 @@ pub fn create_map() -> Map<'static> {
     Map::from([
         ("all", Value::Function(all)),
         ("any", Value::Function(any)),
+        ("equals", Value::Function(equals)),
         ("first", Value::Function(first)),
         ("is_empty", Value::Function(is_empty)),
         ("last", Value::Function(last)),
@@ -28,6 +29,13 @@ pub fn any<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
     }
 
     Ok(Value::Bool(result))
+}
+
+pub fn equals<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+    match arguments {
+        [Value::List(left), Value::List(right)] => Ok(Value::Bool(left == right)),
+        _ => Err(EvalError::TypeMismatch),
+    }
 }
 
 pub fn all<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
@@ -97,6 +105,16 @@ mod tests {
         assert_eq!(evaluate("[true, true].all()"), Ok(Value::Bool(true)));
         assert_eq!(evaluate("[true, false].all()"), Ok(Value::Bool(false)));
         assert_eq!(evaluate("[].all()"), Ok(Value::Bool(true)));
+    }
+
+    #[test]
+    fn evaluates_list_equality() {
+        assert_eq!(
+            evaluate("[1, [true]].equals([1, [true]])"),
+            Ok(Value::Bool(true))
+        );
+        assert_eq!(evaluate("[1, 2].equals([1, 3])"), Ok(Value::Bool(false)));
+        assert_eq!(evaluate("[1].equals(1)"), Err(EvalError::TypeMismatch));
     }
 
     #[test]
