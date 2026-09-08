@@ -1,19 +1,16 @@
 #![allow(clippy::missing_errors_doc)]
 
-use crate::{
-    eval::{EvalError, Value},
-    scope::{Scope, Symbol},
-};
+use crate::eval::{EvalError, Map, Value};
 
 #[must_use]
-pub fn create_scope() -> Scope<'static> {
-    Scope::from_symbols([
-        ("all", Symbol::Function(all)),
-        ("any", Symbol::Function(any)),
-        ("first", Symbol::Function(first)),
-        ("is_empty", Symbol::Function(is_empty)),
-        ("last", Symbol::Function(last)),
-        ("len", Symbol::Function(len)),
+pub fn create_map() -> Map<'static> {
+    Map::from([
+        ("all", Value::Function(all)),
+        ("any", Value::Function(any)),
+        ("first", Value::Function(first)),
+        ("is_empty", Value::Function(is_empty)),
+        ("last", Value::Function(last)),
+        ("len", Value::Function(len)),
     ])
 }
 

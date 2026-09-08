@@ -4,29 +4,26 @@
     clippy::missing_errors_doc
 )]
 
-use crate::{
-    eval::{EvalError, Value},
-    scope::{Scope, Symbol},
-};
+use crate::eval::{EvalError, Map, Value};
 
 #[must_use]
-pub fn create_scope() -> Scope<'static> {
-    Scope::from_symbols([
-        ("abs", Symbol::Function(abs)),
-        ("ceil", Symbol::Function(ceil)),
-        ("clamp", Symbol::Function(clamp)),
-        ("floor", Symbol::Function(floor)),
-        ("ln", Symbol::Function(ln)),
-        ("log", Symbol::Function(log)),
-        ("log10", Symbol::Function(log10)),
-        ("log2", Symbol::Function(log2)),
-        ("is_finite", Symbol::Function(is_finite)),
-        ("is_infinite", Symbol::Function(is_infinite)),
-        ("is_nan", Symbol::Function(is_nan)),
-        ("max", Symbol::Function(max)),
-        ("min", Symbol::Function(min)),
-        ("round", Symbol::Function(round)),
-        ("sqrt", Symbol::Function(sqrt)),
+pub fn create_map() -> Map<'static> {
+    Map::from([
+        ("abs", Value::Function(abs)),
+        ("ceil", Value::Function(ceil)),
+        ("clamp", Value::Function(clamp)),
+        ("floor", Value::Function(floor)),
+        ("ln", Value::Function(ln)),
+        ("log", Value::Function(log)),
+        ("log10", Value::Function(log10)),
+        ("log2", Value::Function(log2)),
+        ("is_finite", Value::Function(is_finite)),
+        ("is_infinite", Value::Function(is_infinite)),
+        ("is_nan", Value::Function(is_nan)),
+        ("max", Value::Function(max)),
+        ("min", Value::Function(min)),
+        ("round", Value::Function(round)),
+        ("sqrt", Value::Function(sqrt)),
     ])
 }
 

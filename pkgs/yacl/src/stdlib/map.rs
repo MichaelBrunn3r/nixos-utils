@@ -1,6 +1,6 @@
-use crate::scope::Scope;
+use crate::eval::Map;
 
 #[must_use]
-pub fn create_scope() -> Scope<'static> {
-    Scope::from_symbols([])
+pub const fn create_map() -> Map<'static> {
+    Map::new()
 }

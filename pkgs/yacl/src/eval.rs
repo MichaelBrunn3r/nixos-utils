@@ -10,6 +10,7 @@ use std::rc::Rc;
 use crate::{
     ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
     scope::{BuiltinFunction, Scope, Symbol},
+    stdlib,
 };
 
 pub fn evaluate_ast<'input>(
@@ -116,21 +117,16 @@ fn evaluate_access<'input>(
             .cloned()
             .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned()));
     }
-    let symbol = resolve_member(&object, name, scope)?;
-    Ok(symbol_to_value(&symbol))
+    resolve_member(&object, name)
 }
 
-fn resolve_member<'input>(
-    object: &Value<'input>,
-    name: &str,
-    scope: &Scope<'input>,
-) -> Result<crate::scope::SymbolRef<'input>, EvalError> {
+fn resolve_member<'input>(object: &Value<'input>, name: &str) -> Result<Value<'input>, EvalError> {
     match object {
         Value::Scope(object) => object
             .resolve_path(std::slice::from_ref(&name))
+            .map(|symbol| symbol_to_value(&symbol))
             .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
-        value => scope
-            .resolve_path(&["types", value.type_name(), name])
+        value => stdlib::type_member(value, name)
             .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
     }
 }
@@ -160,14 +156,14 @@ fn evaluate_call<'input>(
                     .cloned()
                     .ok_or_else(|| EvalError::UnknownFunction((*name).to_owned()))?
             } else {
-                let symbol = resolve_member(&object, name, scope).map_err(|error| match error {
+                let value = resolve_member(&object, name).map_err(|error| match error {
                     EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
                     error => error,
                 })?;
                 if !matches!(object, Value::Scope(_)) {
                     receiver = Some(object);
                 }
-                symbol_to_value(&symbol)
+                value
             }
         }
         callee => evaluate_expr(callee, scope).map_err(|error| match error {
@@ -306,21 +302,6 @@ impl PartialEq for Value<'_> {
     }
 }
 
-impl Value<'_> {
-    const fn type_name(&self) -> &'static str {
-        match self {
-            Self::Bool(_) => "bool",
-            Self::Int(_) => "int",
-            Self::Float(_) => "float",
-            Self::Str(_) => "str",
-            Self::List(_) => "list",
-            Self::Map(_) => "map",
-            Self::Function(_) => "function",
-            Self::Scope(_) => "scope",
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -425,6 +406,23 @@ mod tests {
     }
 
     #[test]
+    fn imports_standard_library_as_a_map() {
+        assert_eq!(
+            evaluate("let std = import(\"std\")\nstd.math.sin(std.math.PI / 2)"),
+            Ok(Value::Float(1.0))
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_and_invalid_imports() {
+        assert_eq!(
+            evaluate("import(\"missing\")"),
+            Err(EvalError::UnknownModule("missing".to_owned()))
+        );
+        assert_eq!(evaluate("import(1)"), Err(EvalError::TypeMismatch));
+    }
+
+    #[test]
     fn rejects_duplicate_let_bindings() {
         assert_eq!(
             evaluate("let value = 1\nlet value = 2"),
@@ -450,11 +448,11 @@ mod tests {
     #[test]
     fn resolves_qualified_symbols_and_imports() {
         assert_eq!(
-            evaluate("std.math.PI"),
+            evaluate("let std = import(\"std\")\nstd.math.PI"),
             Ok(Value::Float(std::f64::consts::PI))
         );
         assert_eq!(
-            evaluate("use std.math.sin\nsin(std.math.PI / 2)"),
+            evaluate("let std = import(\"std\")\nstd.math.sin(std.math.PI / 2)"),
             Ok(Value::Float(1.0))
         );
     }
@@ -466,7 +464,10 @@ mod tests {
 
     #[test]
     fn resolves_chained_access_and_calls() {
-        assert_eq!(evaluate("(types.int.sqrt)(9)"), Ok(Value::Float(3.0)));
+        assert_eq!(
+            evaluate("let types = import(\"types\")\n(types.int.sqrt)(9)"),
+            Ok(Value::Float(3.0))
+        );
         assert_eq!(
             evaluate("result: 9.sqrt()"),
             Ok(Value::Map(BTreeMap::from([("result", Value::Float(3.0),)])))

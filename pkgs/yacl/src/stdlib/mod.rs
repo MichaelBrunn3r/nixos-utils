@@ -8,26 +8,80 @@ pub mod string;
 
 use std::rc::Rc;
 
+use crate::eval::{EvalError, Value};
 use crate::scope::{Scope, Symbol};
+
+/// Constructs the standard lexical prelude.
+///
+/// The prelude is installed as the root scope for normal evaluation and
+/// always provides `import` for expression-based module loading.
+#[must_use]
+pub fn prelude() -> Rc<Scope<'static>> {
+    Rc::new(Scope::from_symbols([("import", Symbol::Function(import))]))
+}
 
 #[must_use]
 pub fn new() -> Rc<Scope<'static>> {
-    let types = Scope::from_symbols([
-        ("bool", Symbol::Scope(boolean::create_scope())),
-        ("float", Symbol::Scope(float::create_scope())),
-        ("int", Symbol::Scope(int::create_scope())),
-        ("list", Symbol::Scope(list::create_scope())),
-        ("map", Symbol::Scope(map::create_scope())),
-        ("str", Symbol::Scope(string::create_scope())),
-    ]);
-    Rc::new(Scope::from_symbols([
-        ("types", Symbol::Scope(types)),
-        (
-            "std",
-            Symbol::Scope(Scope::from_symbols([(
-                "math",
-                Symbol::Scope(math::create_scope()),
-            )])),
-        ),
-    ]))
+    prelude()
+}
+
+/// Imports a standard module by name.
+///
+/// # Errors
+///
+/// Returns [`EvalError::UnknownModule`] for an unknown module name and
+/// [`EvalError::TypeMismatch`] when the argument is not a string.
+pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+    match arguments {
+        [Value::Str("std")] => Ok(Value::Map(std_map())),
+        [Value::Str("types")] => Ok(Value::Map(types_map())),
+        [Value::Str(name)] => Err(EvalError::UnknownModule((*name).to_owned())),
+        _ => Err(EvalError::TypeMismatch),
+    }
+}
+
+fn std_map() -> crate::eval::Map<'static> {
+    crate::eval::Map::from([("math", Value::Map(math::create_map()))])
+}
+
+fn types_map() -> crate::eval::Map<'static> {
+    crate::eval::Map::from([
+        ("bool", Value::Map(boolean::create_map())),
+        ("float", Value::Map(float::create_map())),
+        ("int", Value::Map(int::create_map())),
+        ("list", Value::Map(list::create_map())),
+        ("map", Value::Map(map::create_map())),
+        ("str", Value::Map(string::create_map())),
+    ])
+}
+
+pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<Value<'input>> {
+    let type_name = match value {
+        Value::Bool(_) => "bool",
+        Value::Float(_) => "float",
+        Value::Int(_) => "int",
+        Value::List(_) => "list",
+        Value::Map(_) => "map",
+        Value::Str(_) => "str",
+        Value::Function(_) | Value::Scope(_) => return None,
+    };
+
+    let types = types_map();
+    let Value::Map(module) = types.get(type_name)? else {
+        return None;
+    };
+    module.get(name).cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::prelude;
+
+    #[test]
+    fn prelude_exposes_only_import() {
+        let prelude = prelude();
+        assert!(prelude.resolve_path(&["import"]).is_some());
+        assert!(prelude.resolve_path(&["types"]).is_none());
+        assert!(prelude.resolve_path(&["std"]).is_none());
+    }
 }

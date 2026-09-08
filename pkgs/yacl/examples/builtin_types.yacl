@@ -1,4 +1,4 @@
-use std.math.*
+let std = import("std")
 
 // int
 int_methods: [
@@ -24,11 +24,11 @@ float_methods: [
 	256.0.log2()            == 8.0,     // base-2 logarithm
 	1000.0.log10()          == 3.0,     // base-10 logarithm
 	1.0.is_finite()         == true,    // finite-value check
-	INFINITY.is_finite()    == false,   // infinity is not finite
-	INFINITY.is_infinite()  == true,    // infinity check
-	NAN.is_finite()         == false,   // NaN is not finite
-	NAN.is_infinite()       == false,   // NaN is not infinity
-	NAN.is_nan()            == true,    // NaN check
+	std.math.INFINITY.is_finite()  == false,   // infinity is not finite
+	std.math.INFINITY.is_infinite() == true,   // infinity check
+	std.math.NAN.is_finite()        == false,   // NaN is not finite
+	std.math.NAN.is_infinite()      == false,   // NaN is not infinity
+	std.math.NAN.is_nan()           == true,    // NaN is not a number
 	7.5.max(12.5)           == 12.5,    // maximum value
 	7.5.min(12.5)           == 7.5,     // minimum value
 	3.5.round()             == 4,       // nearest integer

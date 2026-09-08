@@ -4,27 +4,25 @@
     clippy::missing_errors_doc
 )]
 
-use crate::{
-    eval::{EvalError, Value},
-    scope::{Scope, Symbol},
-};
+use crate::eval::{EvalError, Map, Value};
 
 pub const PI: Value<'static> = Value::Float(std::f64::consts::PI);
 pub const INFINITY: Value<'static> = Value::Float(f64::INFINITY);
 pub const NAN: Value<'static> = Value::Float(f64::NAN);
 
-pub fn create_scope() -> Scope<'static> {
-    Scope::from_symbols([
-        ("PI", Symbol::Value(PI)),
-        ("INFINITY", Symbol::Value(INFINITY)),
-        ("NAN", Symbol::Value(NAN)),
-        ("acos", Symbol::Function(acos)),
-        ("asin", Symbol::Function(asin)),
-        ("atan", Symbol::Function(atan)),
-        ("atan2", Symbol::Function(atan2)),
-        ("sin", Symbol::Function(sin)),
-        ("cos", Symbol::Function(cos)),
-        ("tan", Symbol::Function(tan)),
+#[must_use]
+pub fn create_map() -> Map<'static> {
+    Map::from([
+        ("PI", PI),
+        ("INFINITY", INFINITY),
+        ("NAN", NAN),
+        ("acos", Value::Function(acos)),
+        ("asin", Value::Function(asin)),
+        ("atan", Value::Function(atan)),
+        ("atan2", Value::Function(atan2)),
+        ("sin", Value::Function(sin)),
+        ("cos", Value::Function(cos)),
+        ("tan", Value::Function(tan)),
     ])
 }
 
@@ -99,7 +97,7 @@ mod tests {
     #[test]
     fn evaluates_math_builtins_through_the_pipeline() {
         let document = evaluate(
-            "use std.math.*\nminimum: 4.min(2)\nmaximum: 2.5.max(4.0)\nlimited: 12.clamp(0, 10)\nlimited_float: 12.5.clamp(0.0, 10.0)\nnatural_log: 1.ln()\nbase_two_log: 8.log(2)\nbase_ten_log: 100.log(10)\ntangent: tan(0)\narcsine: asin(0)\narccosine: acos(1)\narctangent: atan(0)\nquadrant: atan2(1, 0)\nfinite: 1.0.is_finite()\ninfinite: 1.0.is_infinite()\nnan: 1.0.is_nan()\npi_value: PI\ninfinity_value: INFINITY\nnan_value: NAN",
+            "let std = import(\"std\")\nminimum: 4.min(2)\nmaximum: 2.5.max(4.0)\nlimited: 12.clamp(0, 10)\nlimited_float: 12.5.clamp(0.0, 10.0)\nnatural_log: 1.ln()\nbase_two_log: 8.log(2)\nbase_ten_log: 100.log(10)\ntangent: std.math.tan(0)\narcsine: std.math.asin(0)\narccosine: std.math.acos(1)\narctangent: std.math.atan(0)\nquadrant: std.math.atan2(1, 0)\nfinite: 1.0.is_finite()\ninfinite: 1.0.is_infinite()\nnan: 1.0.is_nan()\npi_value: std.math.PI\ninfinity_value: std.math.INFINITY\nnan_value: std.math.NAN",
         )
         .expect("math builtins should evaluate");
 
@@ -138,11 +136,11 @@ mod tests {
     #[test]
     fn rejects_invalid_math_arguments_through_the_pipeline() {
         assert_eq!(
-            evaluate("use std.math.*\nresult: cos(true)"),
+            evaluate("let std = import(\"std\")\nresult: std.math.cos(true)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(
-            evaluate("use std.math.*\nresult: sin(1, 2)"),
+            evaluate("let std = import(\"std\")\nresult: std.math.sin(1, 2)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(

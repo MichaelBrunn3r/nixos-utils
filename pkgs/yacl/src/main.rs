@@ -18,7 +18,7 @@ fn run() -> Result<(), String> {
     let ast = Parser::new(&input)
         .parse()
         .map_err(|error| format!("failed to parse {path:?}: {error:?}"))?;
-    let scope = stdlib::new();
+    let scope = stdlib::prelude();
     let value = evaluate_ast(&ast, &scope)
         .map_err(|error| format!("failed to evaluate {path:?}: {error:?}"))?;
 
