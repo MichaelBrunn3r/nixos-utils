@@ -4,7 +4,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use yacl::{eval::evaluate_ast, parser::Parser, stdlib};
 
 fn pipeline(c: &mut Criterion) {
-    let input = include_str!("../examples/example.yacl");
+    let input = include_str!("./res/example.yacl");
     let root = stdlib::new();
 
     c.bench_function("parse_and_evaluate", |benchmark| {

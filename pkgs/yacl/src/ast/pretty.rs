@@ -82,6 +82,18 @@ impl Expr<'_> {
             Self::Int(value) => text(value.to_string()),
             Self::Float(value) => text(value.to_string()),
             Self::Str(value) => text(format!("{value:?}")),
+            Self::List(values) => {
+                let values = join(
+                    values.iter().map(|value| value.pretty_doc(config)),
+                    &concat([text(","), Doc::Line]),
+                );
+                group(concat([
+                    text("List["),
+                    nest(config.indent_width, concat([Doc::SoftLine, values])),
+                    Doc::SoftLine,
+                    text("]"),
+                ]))
+            }
             Self::Id(identifier) => identifier_document(identifier),
             Self::Unary { op, value } => {
                 let operator = match op {
@@ -101,6 +113,7 @@ impl Expr<'_> {
                     BinaryOp::Mul => "Mul",
                     BinaryOp::Div => "Div",
                     BinaryOp::Exp => "Exp",
+                    BinaryOp::Equal => "Equal",
                 };
                 concat([
                     text(format!("{operator}(")),

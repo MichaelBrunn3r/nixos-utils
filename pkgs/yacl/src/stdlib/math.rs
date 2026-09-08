@@ -10,10 +10,14 @@ use crate::{
 };
 
 pub const PI: Value<'static> = Value::Float(std::f64::consts::PI);
+pub const INFINITY: Value<'static> = Value::Float(f64::INFINITY);
+pub const NAN: Value<'static> = Value::Float(f64::NAN);
 
 pub fn create_scope() -> Scope<'static> {
     Scope::from_symbols([
-        ("pi", Symbol::Value(PI)),
+        ("PI", Symbol::Value(PI)),
+        ("INFINITY", Symbol::Value(INFINITY)),
+        ("NAN", Symbol::Value(NAN)),
         ("acos", Symbol::Function(acos)),
         ("asin", Symbol::Function(asin)),
         ("atan", Symbol::Function(atan)),
@@ -95,7 +99,7 @@ mod tests {
     #[test]
     fn evaluates_math_builtins_through_the_pipeline() {
         let document = evaluate(
-            "use std.math.*\nminimum = 4.min(2)\nmaximum = 2.5.max(4.0)\nlimited = 12.clamp(0, 10)\nlimited_float = 12.5.clamp(0.0, 10.0)\nnatural_log = 1.ln()\nbase_two_log = 8.log(2)\nbase_ten_log = 100.log(10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = 1.0.is_finite()\ninfinite = 1.0.is_infinite()\nnan = 1.0.is_nan()",
+            "use std.math.*\nminimum = 4.min(2)\nmaximum = 2.5.max(4.0)\nlimited = 12.clamp(0, 10)\nlimited_float = 12.5.clamp(0.0, 10.0)\nnatural_log = 1.ln()\nbase_two_log = 8.log(2)\nbase_ten_log = 100.log(10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = 1.0.is_finite()\ninfinite = 1.0.is_infinite()\nnan = 1.0.is_nan()\npi_value = PI\ninfinity_value = INFINITY\nnan_value = NAN",
         )
         .expect("math builtins should evaluate");
 
@@ -120,6 +124,15 @@ mod tests {
         assert_eq!(document.get("finite"), Some(&Value::Bool(true)));
         assert_eq!(document.get("infinite"), Some(&Value::Bool(false)));
         assert_eq!(document.get("nan"), Some(&Value::Bool(false)));
+        assert_eq!(
+            document.get("pi_value"),
+            Some(&Value::Float(std::f64::consts::PI))
+        );
+        assert_eq!(
+            document.get("infinity_value"),
+            Some(&Value::Float(f64::INFINITY))
+        );
+        assert!(matches!(document.get("nan_value"), Some(Value::Float(value)) if value.is_nan()));
     }
 
     #[test]

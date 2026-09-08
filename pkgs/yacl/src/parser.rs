@@ -119,6 +119,7 @@ impl<'input> Parser<'input> {
             Token::Int(value) => self.parse_postfix(Expr::Int(value)),
             Token::Float(value) => self.parse_postfix(Expr::Float(value)),
             Token::Str(value) => self.parse_postfix(Expr::Str(value)),
+            Token::LBracket => self.parse_list(),
             Token::Id(value) => self.parse_postfix(Expr::Id(Identifier::Simple(value))),
             Token::LParen => {
                 let expression = self.parse_expression(0)?;
@@ -190,6 +191,31 @@ impl<'input> Parser<'input> {
         })
     }
 
+    fn parse_list(&mut self) -> Result<Expr<'input>, ParseError> {
+        let mut values = Vec::new();
+        self.skip_separators()?;
+
+        if !matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+            loop {
+                values.push(self.parse_expression(0)?);
+
+                if matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+                    break;
+                }
+
+                self.expect_next_token(&Token::Sep)?;
+                self.skip_separators()?;
+
+                if matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+                    break;
+                }
+            }
+        }
+
+        self.expect_next_token(&Token::RBracket)?;
+        self.parse_postfix(Expr::List(values))
+    }
+
     const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {
         match token {
             Token::Add => Some((10, 11, BinaryOp::Add)),
@@ -197,6 +223,7 @@ impl<'input> Parser<'input> {
             Token::Mul => Some((20, 21, BinaryOp::Mul)),
             Token::Div => Some((20, 21, BinaryOp::Div)),
             Token::Exp => Some((30, 30, BinaryOp::Exp)),
+            Token::Equal => Some((5, 6, BinaryOp::Equal)),
             _ => None,
         }
     }

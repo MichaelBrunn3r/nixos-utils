@@ -63,6 +63,11 @@ fn evaluate_expr<'input>(
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Str(value) => Ok(Value::Str(value)),
+        Expr::List(values) => values
+            .iter()
+            .map(|value| evaluate_expr(value, scope))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::List),
         Expr::Access { object, name } => evaluate_access(object, name, scope),
         Expr::Id(identifier) => {
             let path = match identifier {
@@ -209,6 +214,17 @@ fn evaluate_binary<'input>(
         (BinaryOp::Exp, Value::Float(left), Value::Float(right)) => {
             Ok(Value::Float(left.powf(right)))
         }
+        (BinaryOp::Equal, left, right)
+            if matches!(
+                (&left, &right),
+                (
+                    Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
+                    Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
+                )
+            ) =>
+        {
+            Ok(Value::Bool(left == right))
+        }
         (operator, Value::Int(left), Value::Float(right)) => {
             evaluate_binary(operator, Value::Float(left as f64), Value::Float(right))
         }
@@ -242,6 +258,7 @@ pub enum Value<'input> {
     Int(i64),
     Float(f64),
     Str(&'input str),
+    List(Vec<Self>),
     Map(Map<'input>),
     Function(BuiltinFunction),
     Scope(Rc<Scope<'input>>),
@@ -254,6 +271,7 @@ impl PartialEq for Value<'_> {
             (Self::Int(left), Self::Int(right)) => left == right,
             (Self::Float(left), Self::Float(right)) => left == right,
             (Self::Str(left), Self::Str(right)) => left == right,
+            (Self::List(left), Self::List(right)) => left == right,
             (Self::Map(left), Self::Map(right)) => left == right,
             (Self::Scope(left), Self::Scope(right)) => Rc::ptr_eq(left, right),
             _ => false,
@@ -268,6 +286,7 @@ impl Value<'_> {
             Self::Int(_) => "int",
             Self::Float(_) => "float",
             Self::Str(_) => "str",
+            Self::List(_) => "list",
             Self::Map(_) => "map",
             Self::Function(_) => "function",
             Self::Scope(_) => "scope",
@@ -336,16 +355,39 @@ mod tests {
             evaluate("count = 3"),
             Ok(Value::Map(BTreeMap::from([("count", Value::Int(3))])))
         );
+        assert_eq!(
+            evaluate("[1, 2 * 3, [4, 5]]"),
+            Ok(Value::List(vec![
+                Value::Int(1),
+                Value::Int(6),
+                Value::List(vec![Value::Int(4), Value::Int(5)]),
+            ]))
+        );
+    }
+
+    #[test]
+    fn evaluates_strict_scalar_equality() {
+        assert_eq!(evaluate("1 == 1"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("1 == 2"), Ok(Value::Bool(false)));
+        assert_eq!(evaluate("1 == 1.0"), Ok(Value::Bool(false)));
+        assert_eq!(evaluate("true == true"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("\"value\" == \"value\""), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("1 + 2 == 3"), Ok(Value::Bool(true)));
+    }
+
+    #[test]
+    fn rejects_equality_for_unsupported_values() {
+        assert_eq!(evaluate("[1] == [1]"), Err(EvalError::TypeMismatch));
     }
 
     #[test]
     fn resolves_qualified_symbols_and_imports() {
         assert_eq!(
-            evaluate("std.math.pi"),
+            evaluate("std.math.PI"),
             Ok(Value::Float(std::f64::consts::PI))
         );
         assert_eq!(
-            evaluate("use std.math.sin\nsin(std.math.pi / 2)"),
+            evaluate("use std.math.sin\nsin(std.math.PI / 2)"),
             Ok(Value::Float(1.0))
         );
     }

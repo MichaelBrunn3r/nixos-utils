@@ -1,6 +1,7 @@
 pub mod boolean;
 pub mod float;
 pub mod int;
+pub mod list;
 pub mod map;
 pub mod math;
 pub mod string;
@@ -15,6 +16,7 @@ pub fn new() -> Rc<Scope<'static>> {
         ("bool", Symbol::Scope(boolean::create_scope())),
         ("float", Symbol::Scope(float::create_scope())),
         ("int", Symbol::Scope(int::create_scope())),
+        ("list", Symbol::Scope(list::create_scope())),
         ("map", Symbol::Scope(map::create_scope())),
         ("str", Symbol::Scope(string::create_scope())),
     ]);

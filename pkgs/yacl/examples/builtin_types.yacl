@@ -1,0 +1,58 @@
+use std.math.*
+
+// int
+int_methods = [
+	(-42).abs()     == 42,  // absolute value
+	42.clamp(0, 10) == 10,  // constrain to a range
+	1.ln()          == 0.0, // natural logarithm
+	100.log(10)     == 2.0, // logarithm with a base
+	256.log2()      == 8.0, // base-2 logarithm
+	1000.log10()    == 3.0, // base-10 logarithm
+	7.max(12)       == 12,  // maximum value
+	7.min(12)       == 7,   // minimum value
+	9.sqrt()        == 3.0, // square root
+].all()
+
+// float
+float_methods = [
+	(-4.5).abs()            == 4.5,     // absolute value
+	3.25.ceil()             == 4,       // round up
+	42.5.clamp(0.0, 10.0)   == 10.0,    // constrain to a range
+	3.75.floor()            == 3,       // round down
+	1.0.ln()                == 0.0,     // natural logarithm
+	100.0.log(10.0)         == 2.0,     // logarithm with a base
+	256.0.log2()            == 8.0,     // base-2 logarithm
+	1000.0.log10()          == 3.0,     // base-10 logarithm
+	1.0.is_finite()         == true,    // finite-value check
+	INFINITY.is_finite()    == false,   // infinity is not finite
+	INFINITY.is_infinite()  == true,    // infinity check
+	NAN.is_finite()         == false,   // NaN is not finite
+	NAN.is_infinite()       == false,   // NaN is not infinity
+	NAN.is_nan()            == true,    // NaN check
+	7.5.max(12.5)           == 12.5,    // maximum value
+	7.5.min(12.5)           == 7.5,     // minimum value
+	3.5.round()             == 4,       // nearest integer
+	9.0.sqrt()              == 3.0,     // square root
+].all()
+
+// string
+string_methods = [
+	"héllo".len_chars()             == 5,       // Unicode scalar count
+	"héllo".len_bytes()             == 6,       // UTF-8 byte count
+	"".is_empty()                   == true,    // empty-value check
+	"hello".is_ascii()              == true,    // ASCII check
+	"hello world".contains("world") == true,    // substring check
+	"hello".starts_with("he")       == true,    // prefix check
+	"hello".ends_with("lo")         == true,    // suffix check
+	"hello hello".count("hello")    == 2,       // non-overlapping match count
+].all()
+
+// list
+list_methods = [
+	[true, true].all()  == true,  // whether every element is true
+	[false, true].any() == true,  // whether any element is true
+	[].is_empty()       == true,  // empty-value check
+	[1, 2, 3].len()     == 3,     // element count
+	[1, 2].first()      == 1,     // first element
+	[1, 2].last()       == 2,     // last element
+].all()

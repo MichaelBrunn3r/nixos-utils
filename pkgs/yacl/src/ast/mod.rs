@@ -44,6 +44,7 @@ pub enum BinaryOp {
     Mul,
     Div,
     Exp,
+    Equal,
 }
 
 #[derive(Debug, PartialEq)]
@@ -52,6 +53,7 @@ pub enum Expr<'input> {
     Int(i64),
     Float(f64),
     Str(&'input str),
+    List(Vec<Self>),
     Id(Identifier<'input>),
     Access {
         object: Box<Self>,

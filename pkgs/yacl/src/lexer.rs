@@ -34,6 +34,8 @@ impl<'input> Iterator for Lexer<'input> {
             ',' | '\n' => Ok(Token::Sep),
             '(' => Ok(Token::LParen),
             ')' => Ok(Token::RParen),
+            '[' => Ok(Token::LBracket),
+            ']' => Ok(Token::RBracket),
             '.' => Ok(Token::Dot),
             '+' => Ok(Token::Add),
             '-' => Ok(Token::Sub),
@@ -47,7 +49,14 @@ impl<'input> Iterator for Lexer<'input> {
                 }
             }
             '/' => Ok(Token::Div),
-            '=' => Ok(Token::Eq),
+            '=' => {
+                if self.starts_with("==") {
+                    self.next_char();
+                    Ok(Token::Equal)
+                } else {
+                    Ok(Token::Eq)
+                }
+            }
             '"' | '\'' => return Some(self.read_string(c)),
             '0'..='9' => return Some(self.read_number()),
             _ => return Some(Ok(self.read_identifier())),
@@ -267,7 +276,19 @@ impl<'input> Lexer<'input> {
             !character.is_whitespace()
                 && !matches!(
                     character,
-                    ',' | '+' | '-' | '^' | '*' | '/' | '=' | '(' | ')' | '.' | '"' | '\''
+                    ',' | '+'
+                        | '-'
+                        | '^'
+                        | '*'
+                        | '/'
+                        | '='
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '.'
+                        | '"'
+                        | '\''
                 )
         }) {
             self.next_char();
@@ -291,8 +312,11 @@ pub enum Token<'a> {
     Mul,
     Div,
     Eq,
+    Equal,
     LParen,
     RParen,
+    LBracket,
+    RBracket,
     Dot,
     Bool(bool),
     Int(i64),
@@ -350,6 +374,12 @@ mod tests {
             .join("\n\n");
 
         assert_snapshot!(cases);
+    }
+
+    #[test]
+    fn distinguishes_assignment_and_equality() {
+        let tokens: Vec<_> = Lexer::new("= ==").map(Result::unwrap).collect();
+        assert_eq!(tokens, vec![super::Token::Eq, super::Token::Equal]);
     }
 
     #[test]
