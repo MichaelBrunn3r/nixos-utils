@@ -1,7 +1,7 @@
 cargo-features = ["profile-rustflags"]
 
 [workspace]
-members = ["pkgs/trim-generations", "pkgs/nanofetch", "pkgs/clcry", "pkgs/yacl"]
+members = ["pkgs/trim-generations", "pkgs/nanofetch", "pkgs/clcry", "pkgs/djson"]
 resolver = "3"
 
 [workspace.dependencies]

@@ -1,9 +1,9 @@
-// A complete YACL document showcasing literals, imports, expressions, and calls.
+// A complete DJSON document showcasing literals, imports, expressions, and calls.
 
 let std = import("std")
 
 // Basic values describe the kind of data they contain.
-application_name: "YACL feature showcase"
+application_name: "DJSON feature showcase"
 application_enabled: true
 application_is_development: false
 maximum_retry_count: 5

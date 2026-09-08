@@ -10,6 +10,7 @@
     git
     perf
     samply
+    vsce
   ];
 
   git-hooks.hooks = {

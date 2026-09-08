@@ -1,5 +1,5 @@
 ---
-source: pkgs/yacl/src/lexer.rs
+source: pkgs/djson/src/lexer.rs
 expression: cases
 ---
 integer overflow

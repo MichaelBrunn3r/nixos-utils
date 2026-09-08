@@ -1,5 +1,5 @@
 ---
-source: pkgs/yacl/src/parser.rs
+source: pkgs/djson/src/parser.rs
 expression: cases
 ---
 key value pairs

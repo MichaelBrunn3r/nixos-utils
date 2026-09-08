@@ -1,0 +1,26 @@
+{
+  "name": "djson",
+  "displayName": "DJSON",
+  "description": "Syntax highlighting for the DJSON language",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": ">=1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "djson",
+      "aliases": ["DJSON", "djson"],
+      "extensions": [".dj", ".djson"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "djson",
+      "scopeName": "source.djson",
+      "path": "./syntaxes/djson.tmLanguage.json"
+    }]
+  }
+}

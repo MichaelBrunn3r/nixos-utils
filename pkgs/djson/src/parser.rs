@@ -32,6 +32,14 @@ impl<'input> Parser<'input> {
 
     fn parse_statement(&mut self) -> Result<Statement<'input>, ParseError> {
         if matches!(self.tokens.peek(), Some(Ok(Token::Id("let")))) {
+            self.next_token()?;
+            if matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
+                self.next_token()?;
+                return Ok(Statement::KV(KV {
+                    key: "let",
+                    expr: self.parse_expression(0)?,
+                }));
+            }
             return self.parse_let();
         }
         let expression = self.parse_expression(0)?;
@@ -58,7 +66,6 @@ impl<'input> Parser<'input> {
     }
 
     fn parse_let(&mut self) -> Result<Statement<'input>, ParseError> {
-        self.next_token()?;
         let name = match self.next_token()? {
             Token::Id(value) if value != "let" => value,
             token => return Err(Self::unexpected(&token, "expected an identifier")),
@@ -385,5 +392,31 @@ mod tests {
                 expr: Expr::Id(Identifier::Simple("value")),
             })
         ));
+    }
+
+    #[test]
+    fn allows_let_as_map_key() {
+        let ast = Parser::new("{let : 1}").parse().expect("valid map");
+        assert_eq!(
+            ast.statements,
+            vec![Statement::Expr(Expr::Map(vec![crate::ast::KV {
+                key: "let",
+                expr: Expr::Int(1),
+            }]))]
+        );
+    }
+
+    #[test]
+    fn allows_let_as_top_level_key() {
+        let ast = Parser::new("let: value")
+            .parse()
+            .expect("valid top-level field");
+        assert_eq!(
+            ast.statements,
+            vec![Statement::KV(crate::ast::KV {
+                key: "let",
+                expr: Expr::Id(Identifier::Simple("value")),
+            })]
+        );
     }
 }

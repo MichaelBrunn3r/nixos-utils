@@ -21,3 +21,6 @@ nanofetch *args:
 profile bin:
     cargo build --profile profiling -p {{ bin }}
     samply record -- {{ target_dir }}/profiling/{{ bin }}
+
+vscode-djson:
+    cd pkgs/vscode-djson && vsce package

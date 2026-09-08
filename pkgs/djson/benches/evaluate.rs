@@ -1,10 +1,10 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use yacl::{eval::evaluate_ast, parser::Parser, stdlib};
+use djson::{eval::evaluate_ast, parser::Parser, stdlib};
 
 fn evaluate(c: &mut Criterion) {
-    let input = include_str!("./res/example.yacl");
+    let input = include_str!("./res/example.dj");
     let ast = Parser::new(input).parse().expect("valid input");
     let root = stdlib::new();
 
