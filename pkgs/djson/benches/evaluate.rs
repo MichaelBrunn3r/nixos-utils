@@ -1,7 +1,10 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use djson::{eval::evaluate_ast, parser::Parser, stdlib};
+use djson::{
+    eval::{evaluate_ast, stdlib},
+    parser::Parser,
+};
 
 fn evaluate(c: &mut Criterion) {
     let input = include_str!("./res/example.dj");
