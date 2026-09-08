@@ -8,14 +8,14 @@ use std::collections::BTreeMap;
 
 use crate::{
     ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
-    scope::{Scope, Symbol, symbol_value},
+    scope::{Scope, Symbol},
 };
 
 pub fn evaluate_ast<'input>(
     ast: &AST<'input>,
-    root: &Scope<'static>,
+    root: &std::rc::Rc<Scope<'static>>,
 ) -> Result<Value<'input>, EvalError> {
-    let mut scope = Scope::child();
+    let mut scope = Scope::child(std::rc::Rc::clone(root));
     let mut document = Document::new();
     let mut expression = None;
 
@@ -62,17 +62,21 @@ fn evaluate_expr<'input>(
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Str(value) => Ok(Value::Str(value)),
-        Expr::Id(Identifier::Simple(name)) => match scope.symbols.get(name) {
-            Some(Symbol::Value(value)) => Ok(value.clone()),
-            Some(Symbol::Function(_) | Symbol::Module(_)) => {
-                Err(EvalError::UnknownIdentifier((*name).to_owned()))
-            }
-            None => Err(EvalError::UnknownIdentifier((*name).to_owned())),
-        },
-        Expr::Id(Identifier::Qualified(path)) => scope
-            .resolve_path(path)
-            .and_then(symbol_value)
-            .ok_or_else(|| EvalError::UnknownIdentifier(path.join("."))),
+        Expr::Id(identifier) => {
+            let path = match identifier {
+                Identifier::Simple(name) => std::slice::from_ref(name),
+                Identifier::Qualified(path) => path,
+            };
+            scope.resolve_path(path).map_or_else(
+                || Err(EvalError::UnknownIdentifier(path.join("."))),
+                |symbol| match symbol.as_ref() {
+                    Symbol::Value(value) => Ok(value.clone()),
+                    Symbol::Function(_) | Symbol::Scope(_) => {
+                        Err(EvalError::UnknownIdentifier(path.join(".")))
+                    }
+                },
+            )
+        }
         Expr::Unary { op, value } => evaluate_unary(op, evaluate_expr(value, scope)?),
         Expr::Binary { left, op, right } => evaluate_binary(
             op,
@@ -90,8 +94,13 @@ fn evaluate_call<'input>(
 ) -> Result<Value<'input>, EvalError> {
     let name = path.join(".");
     let function = match scope.resolve_path(path) {
-        Some(Symbol::Function(function)) => function,
-        Some(Symbol::Value(_) | Symbol::Module(_)) | None => {
+        Some(symbol) => match symbol.as_ref() {
+            Symbol::Function(function) => *function,
+            Symbol::Value(_) | Symbol::Scope(_) => {
+                return Err(EvalError::UnknownFunction(name));
+            }
+        },
+        None => {
             return Err(EvalError::UnknownFunction(name));
         }
     };
@@ -252,6 +261,15 @@ mod tests {
         assert_eq!(
             evaluate("count = 3"),
             Ok(Value::Map(BTreeMap::from([("count", Value::Int(3))])))
+        );
+    }
+
+    #[test]
+    fn resolves_qualified_symbols_and_imports() {
+        assert_eq!(evaluate("std.pi"), Ok(Value::Float(std::f64::consts::PI)));
+        assert_eq!(
+            evaluate("use std.sin\nsin(std.pi / 2)"),
+            Ok(Value::Float(1.0))
         );
     }
 
