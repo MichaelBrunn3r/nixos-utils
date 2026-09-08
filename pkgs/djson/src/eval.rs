@@ -64,6 +64,7 @@ fn evaluate_expr<'input>(
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Str(value) => Ok(Value::Str(decode_string(value).into())),
+        Expr::Id(Identifier::Simple("none" | "null" | "nil")) => Ok(Value::None),
         Expr::List(values) => values
             .iter()
             .map(|value| evaluate_expr(value, scope))
@@ -247,8 +248,8 @@ fn evaluate_binary<'input>(
             if matches!(
                 (&left, &right),
                 (
-                    Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
-                    Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
+                    Value::None | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
+                    Value::None | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Str(_),
                 )
             ) =>
         {
@@ -283,6 +284,7 @@ pub type Map<'input> = BTreeMap<&'input str, Value<'input>>;
 
 #[derive(Debug, Clone)]
 pub enum Value<'input> {
+    None,
     Bool(bool),
     Int(i64),
     Float(f64),
@@ -295,6 +297,7 @@ pub enum Value<'input> {
 impl PartialEq for Value<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::None, Self::None) => true,
             (Self::Bool(left), Self::Bool(right)) => left == right,
             (Self::Int(left), Self::Int(right)) => left == right,
             (Self::Float(left), Self::Float(right)) => left == right,
@@ -344,6 +347,15 @@ mod tests {
                 vec![("enabled", Value::Bool(true))],
             ),
             (
+                "none aliases",
+                "none_value: none\nnull_value: null\nnil_value: nil",
+                vec![
+                    ("none_value", Value::None),
+                    ("null_value", Value::None),
+                    ("nil_value", Value::None),
+                ],
+            ),
+            (
                 "nested numeric expression",
                 "result: 1 + 2 * 3",
                 vec![("result", Value::Int(7))],
@@ -374,6 +386,12 @@ mod tests {
             )])))
         );
         assert_eq!(evaluate("{a: 1,}.a"), Ok(Value::Int(1)));
+    }
+
+    #[test]
+    fn evaluates_none_aliases_as_equal() {
+        assert_eq!(evaluate("none == null"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("null == nil"), Ok(Value::Bool(true)));
     }
 
     #[test]

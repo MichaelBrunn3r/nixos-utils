@@ -20,6 +20,9 @@
 			"include": "#booleans"
 		},
 		{
+			"include": "#none"
+		},
+		{
 			"include": "#keywords"
 		},
 		{
@@ -69,6 +72,14 @@
 				{
 					"name": "constant.language.boolean",
 					"match": "\\b(?:true|false)\\b"
+				}
+			]
+		},
+		"none": {
+			"patterns": [
+				{
+					"name": "constant.language.null",
+					"match": "\\b(?:none|null|nil)\\b"
 				}
 			]
 		},

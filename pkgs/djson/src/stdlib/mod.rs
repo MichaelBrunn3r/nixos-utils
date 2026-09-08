@@ -54,12 +54,14 @@ fn types_map() -> crate::eval::Map<'static> {
         ("int", Value::Map(int::create_map())),
         ("list", Value::Map(list::create_map())),
         ("map", Value::Map(map::create_map())),
+        ("none", Value::Map(crate::eval::Map::new())),
         ("str", Value::Map(string::create_map())),
     ])
 }
 
 pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<Value<'input>> {
     let type_name = match value {
+        Value::None => "none",
         Value::Bool(_) => "bool",
         Value::Float(_) => "float",
         Value::Int(_) => "int",
