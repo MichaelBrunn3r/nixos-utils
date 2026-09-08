@@ -1,6 +1,6 @@
 use std::{env, fs, process};
 
-use yacl::{eval::evaluate_ast, parser::Parser, scope::Scope};
+use yacl::{eval::evaluate_ast, parser::Parser, stdlib};
 
 fn main() {
     if let Err(message) = run() {
@@ -18,7 +18,7 @@ fn run() -> Result<(), String> {
     let ast = Parser::new(&input)
         .parse()
         .map_err(|error| format!("failed to parse {path:?}: {error:?}"))?;
-    let scope = Scope::root();
+    let scope = stdlib::new();
     let value = evaluate_ast(&ast, &scope)
         .map_err(|error| format!("failed to evaluate {path:?}: {error:?}"))?;
 

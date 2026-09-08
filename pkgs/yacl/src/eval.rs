@@ -207,11 +207,10 @@ mod tests {
     use super::test_utils::*;
     use super::*;
     use crate::parser::Parser;
-    use crate::scope::Scope;
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = Scope::root();
+        let scope = crate::stdlib::new();
         evaluate_ast(&ast, &scope)
     }
 
@@ -266,9 +265,12 @@ mod tests {
 
     #[test]
     fn resolves_qualified_symbols_and_imports() {
-        assert_eq!(evaluate("std.pi"), Ok(Value::Float(std::f64::consts::PI)));
         assert_eq!(
-            evaluate("use std.sin\nsin(std.pi / 2)"),
+            evaluate("std.math.pi"),
+            Ok(Value::Float(std::f64::consts::PI))
+        );
+        assert_eq!(
+            evaluate("use std.math.sin\nsin(std.math.pi / 2)"),
             Ok(Value::Float(1.0))
         );
     }

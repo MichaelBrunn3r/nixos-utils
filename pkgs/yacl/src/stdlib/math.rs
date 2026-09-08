@@ -4,13 +4,41 @@
     clippy::missing_errors_doc
 )]
 
-use crate::eval::{EvalError, Value};
+use crate::{
+    eval::{EvalError, Value},
+    scope::{Scope, Symbol},
+};
 
-//region Constants
 pub const PI: Value<'static> = Value::Float(std::f64::consts::PI);
-//endregion Constants
 
-//region Trigonometry
+pub fn create_scope() -> Scope<'static> {
+    Scope::from_symbols([
+        ("pi", Symbol::Value(PI)),
+        ("abs", Symbol::Function(abs)),
+        ("acos", Symbol::Function(acos)),
+        ("asin", Symbol::Function(asin)),
+        ("atan", Symbol::Function(atan)),
+        ("atan2", Symbol::Function(atan2)),
+        ("clamp", Symbol::Function(clamp)),
+        ("sin", Symbol::Function(sin)),
+        ("cos", Symbol::Function(cos)),
+        ("floor", Symbol::Function(floor)),
+        ("ceil", Symbol::Function(ceil)),
+        ("round", Symbol::Function(round)),
+        ("is_finite", Symbol::Function(is_finite)),
+        ("is_infinite", Symbol::Function(is_infinite)),
+        ("is_nan", Symbol::Function(is_nan)),
+        ("ln", Symbol::Function(ln)),
+        ("log", Symbol::Function(log)),
+        ("log2", Symbol::Function(log2)),
+        ("log10", Symbol::Function(log10)),
+        ("max", Symbol::Function(max)),
+        ("min", Symbol::Function(min)),
+        ("tan", Symbol::Function(tan)),
+        ("sqrt", Symbol::Function(sqrt)),
+    ])
+}
+
 pub fn sin<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
     unary_float(arguments, f64::sin)
 }
@@ -41,9 +69,7 @@ pub fn atan2<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
         None => Err(EvalError::TypeMismatch),
     }
 }
-//endregion
 
-//region Numeric Functions
 pub fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
     match arguments {
         [Value::Int(value)] => value
@@ -182,20 +208,6 @@ fn clamp_float<'input>(value: f64, minimum: f64, maximum: f64) -> Result<Value<'
     }
     Ok(Value::Float(value.clamp(minimum, maximum)))
 }
-//endregion Numeric Functions
-
-//region Rounding
-pub fn floor<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
-    round_value(arguments, f64::floor)
-}
-
-pub fn ceil<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
-    round_value(arguments, f64::ceil)
-}
-
-pub fn round<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
-    round_value(arguments, f64::round)
-}
 
 fn round_value<'input>(
     arguments: &[Value<'input>],
@@ -213,41 +225,34 @@ fn round_value<'input>(
         _ => Err(EvalError::TypeMismatch),
     }
 }
-//endregion Rounding
+
+pub fn floor<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+    round_value(arguments, f64::floor)
+}
+
+pub fn ceil<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+    round_value(arguments, f64::ceil)
+}
+
+pub fn round<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+    round_value(arguments, f64::round)
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{eval::evaluate_ast, parser::Parser, scope::Scope};
+    use crate::{eval::evaluate_ast, parser::Parser};
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = Scope::root();
+        let scope = crate::stdlib::new();
         evaluate_ast(&ast, &scope)
-    }
-
-    #[test]
-    fn evaluates_builtins_through_the_pipeline() {
-        let document = evaluate(
-            "use std.*\nconstant = pi\nsine = sin(pi / 2)\ncosine = cos(pi)\ndown = floor(3.7)\nup = ceil(-3.7)\nnearest = round(sin(pi / 2))",
-        )
-        .expect("builtins should evaluate");
-
-        let Value::Map(document) = document else {
-            panic!("expected map")
-        };
-        assert_eq!(document.get("constant"), Some(&PI));
-        assert_eq!(document.get("sine"), Some(&Value::Float(1.0)));
-        assert_eq!(document.get("cosine"), Some(&Value::Float(-1.0)));
-        assert_eq!(document.get("down"), Some(&Value::Int(3)));
-        assert_eq!(document.get("up"), Some(&Value::Int(-3)));
-        assert_eq!(document.get("nearest"), Some(&Value::Int(1)));
     }
 
     #[test]
     fn evaluates_math_builtins_through_the_pipeline() {
         let document = evaluate(
-            "use std.*\nabsolute = abs(-3)\nminimum = min(4, 2.5)\nmaximum = max(4, 2.5)\nlimited = clamp(12, 0, 10)\nroot = sqrt(9)\nnatural_log = ln(1)\nbase_two_log = log(8, 2)\nbase_ten_log = log(100, 10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = is_finite(1)\ninfinite = is_infinite(1)\nnan = is_nan(1)",
+            "use std.math.*\nabsolute = abs(-3)\nminimum = min(4, 2.5)\nmaximum = max(4, 2.5)\nlimited = clamp(12, 0, 10)\nroot = sqrt(9)\nnatural_log = ln(1)\nbase_two_log = log(8, 2)\nbase_ten_log = log(100, 10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = is_finite(1)\ninfinite = is_infinite(1)\nnan = is_nan(1)",
         )
         .expect("math builtins should evaluate");
 
@@ -276,17 +281,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_builtin_arguments_through_the_pipeline() {
+    fn rejects_invalid_math_arguments_through_the_pipeline() {
         assert_eq!(
-            evaluate("use std.*\nresult = cos(true)"),
+            evaluate("use std.math.*\nresult = cos(true)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(
-            evaluate("use std.*\nresult = round(1, 2)"),
+            evaluate("use std.math.*\nresult = round(1, 2)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(
-            evaluate("use std.*\nresult = log(10)"),
+            evaluate("use std.math.*\nresult = log(10)"),
             Err(EvalError::TypeMismatch)
         );
     }

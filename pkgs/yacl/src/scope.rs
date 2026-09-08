@@ -1,9 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::{
-    builtins,
-    eval::{EvalError, Value},
-};
+use crate::eval::{EvalError, Value};
 
 #[derive(Clone)]
 pub struct Scope<'input> {
@@ -22,15 +19,14 @@ pub enum Symbol<'input> {
 
 impl<'input> Scope<'input> {
     #[must_use]
-    pub fn root() -> Rc<Scope<'static>> {
-        let std = Scope {
-            symbols: std_symbols(),
+    pub fn from_symbols(symbols: impl IntoIterator<Item = (&'input str, Symbol<'input>)>) -> Self {
+        Self {
+            symbols: symbols
+                .into_iter()
+                .map(|(name, symbol)| (name, Rc::new(symbol)))
+                .collect(),
             parent: None,
-        };
-        Rc::new(Scope {
-            symbols: BTreeMap::from([("std", Rc::new(Symbol::Scope(std)))]),
-            parent: None,
-        })
+        }
     }
 
     #[must_use]
@@ -124,35 +120,4 @@ impl<'input> Scope<'input> {
             .cloned()
             .or_else(|| self.parent.as_deref()?.resolve_name(name))
     }
-}
-
-fn std_symbols() -> BTreeMap<&'static str, SymbolRef<'static>> {
-    BTreeMap::from([
-        ("pi", Symbol::Value(builtins::PI)),
-        ("abs", Symbol::Function(builtins::abs)),
-        ("acos", Symbol::Function(builtins::acos)),
-        ("asin", Symbol::Function(builtins::asin)),
-        ("atan", Symbol::Function(builtins::atan)),
-        ("atan2", Symbol::Function(builtins::atan2)),
-        ("clamp", Symbol::Function(builtins::clamp)),
-        ("sin", Symbol::Function(builtins::sin)),
-        ("cos", Symbol::Function(builtins::cos)),
-        ("floor", Symbol::Function(builtins::floor)),
-        ("ceil", Symbol::Function(builtins::ceil)),
-        ("round", Symbol::Function(builtins::round)),
-        ("is_finite", Symbol::Function(builtins::is_finite)),
-        ("is_infinite", Symbol::Function(builtins::is_infinite)),
-        ("is_nan", Symbol::Function(builtins::is_nan)),
-        ("ln", Symbol::Function(builtins::ln)),
-        ("log", Symbol::Function(builtins::log)),
-        ("log2", Symbol::Function(builtins::log2)),
-        ("log10", Symbol::Function(builtins::log10)),
-        ("max", Symbol::Function(builtins::max)),
-        ("min", Symbol::Function(builtins::min)),
-        ("tan", Symbol::Function(builtins::tan)),
-        ("sqrt", Symbol::Function(builtins::sqrt)),
-    ])
-    .into_iter()
-    .map(|(name, symbol)| (name, Rc::new(symbol)))
-    .collect()
 }

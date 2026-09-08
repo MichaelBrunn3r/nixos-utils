@@ -1,6 +1,6 @@
 // A complete YACL document showcasing literals, imports, expressions, and calls.
 
-use std.*
+use std.math.*
 
 // Basic values describe the kind of data they contain.
 application_name = "YACL feature showcase"
@@ -12,7 +12,7 @@ pi_approximation = 3.14159
 
 // Identifiers can refer to values supplied by an imported module.
 standard_pi_constant = pi
-qualified_constant_reference = std.pi
+qualified_constant_reference = std.math.pi
 
 // Arithmetic examples describe their resulting value.
 sum_of_two_and_three = 2 + 3
