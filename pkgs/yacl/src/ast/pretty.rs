@@ -175,6 +175,12 @@ impl Statement<'_> {
                 text(": "),
                 pair.expr.pretty_doc(config),
             ]),
+            Self::Let(binding) => concat([
+                text("let "),
+                text(binding.name),
+                text(" = "),
+                binding.expr.pretty_doc(config),
+            ]),
             Self::Use(use_statement) => concat([
                 text("Use("),
                 path_document(&use_statement.path),

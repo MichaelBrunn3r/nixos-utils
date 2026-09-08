@@ -10,7 +10,14 @@ pub struct AST<'input> {
 pub enum Statement<'input> {
     Expr(Expr<'input>),
     KV(KV<'input>),
+    Let(Let<'input>),
     Use(Use<'input>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Let<'input> {
+    pub name: &'input str,
+    pub expr: Expr<'input>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

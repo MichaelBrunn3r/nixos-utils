@@ -22,6 +22,11 @@ pub fn evaluate_ast<'input>(
 
     for statement in &ast.statements {
         let value = match statement {
+            Statement::Let(binding) => {
+                let value = evaluate_expr(&binding.expr, &scope)?;
+                scope.bind_value(binding.name, value)?;
+                continue;
+            }
             Statement::Use(import) => {
                 scope.import(import, root)?;
                 continue;
@@ -408,6 +413,22 @@ mod tests {
                 Value::Int(6),
                 Value::List(vec![Value::Int(4), Value::Int(5)]),
             ]))
+        );
+    }
+
+    #[test]
+    fn evaluates_let_bindings_without_document_fields() {
+        assert_eq!(
+            evaluate("let value = { nested: 7 }\nresult: value.nested"),
+            Ok(Value::Map(BTreeMap::from([("result", Value::Int(7))])))
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_let_bindings() {
+        assert_eq!(
+            evaluate("let value = 1\nlet value = 2"),
+            Err(EvalError::SymbolConflict("value".to_owned()))
         );
     }
 

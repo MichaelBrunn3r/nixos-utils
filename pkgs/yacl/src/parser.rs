@@ -2,7 +2,7 @@
 
 use std::iter::Peekable;
 
-use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Statement, UnaryOp, Use};
+use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp, Use};
 use crate::lexer::{Lexer, LexerError, Token};
 
 //region Parser
@@ -31,6 +31,9 @@ impl<'input> Parser<'input> {
     }
 
     fn parse_statement(&mut self) -> Result<Statement<'input>, ParseError> {
+        if matches!(self.tokens.peek(), Some(Ok(Token::Id("let")))) {
+            return self.parse_let();
+        }
         if matches!(self.tokens.peek(), Some(Ok(Token::Id("use")))) {
             return self.parse_use();
         }
@@ -54,6 +57,19 @@ impl<'input> Parser<'input> {
         self.next_token()?;
         Ok(Statement::KV(KV {
             key,
+            expr: self.parse_expression(0)?,
+        }))
+    }
+
+    fn parse_let(&mut self) -> Result<Statement<'input>, ParseError> {
+        self.next_token()?;
+        let name = match self.next_token()? {
+            Token::Id(value) if value != "let" => value,
+            token => return Err(Self::unexpected(&token, "expected an identifier")),
+        };
+        self.expect_next_token(&Token::Eq)?;
+        Ok(Statement::Let(Let {
+            name,
             expr: self.parse_expression(0)?,
         }))
     }
@@ -316,6 +332,7 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::Parser;
+    use crate::ast::{Expr, Identifier, Let, Statement};
     use crate::test_utils::dedent;
 
     #[test]
@@ -369,5 +386,33 @@ mod tests {
             .join("\n\n");
 
         assert_snapshot!(cases);
+    }
+
+    #[test]
+    fn parses_let_binding() {
+        let ast = Parser::new("let value = { nested: 7 }")
+            .parse()
+            .expect("let binding should parse");
+        assert_eq!(
+            ast.statements,
+            vec![Statement::Let(Let {
+                name: "value",
+                expr: Expr::Map(vec![crate::ast::KV {
+                    key: "nested",
+                    expr: Expr::Int(7),
+                }]),
+            })]
+        );
+
+        let ast = Parser::new("let value = 7\nresult: value")
+            .parse()
+            .expect("let binding followed by a document field should parse");
+        assert!(matches!(
+            &ast.statements[1],
+            Statement::KV(crate::ast::KV {
+                key: "result",
+                expr: Expr::Id(Identifier::Simple("value")),
+            })
+        ));
     }
 }

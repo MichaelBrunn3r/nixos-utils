@@ -38,6 +38,20 @@ impl<'input> Scope<'input> {
         }
     }
 
+    /// Binds a value in this scope without allowing same-scope redeclaration.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EvalError::SymbolConflict`] when the name is already bound in
+    /// this scope.
+    pub fn bind_value(&mut self, name: &'input str, value: Value<'input>) -> Result<(), EvalError> {
+        if self.symbols.contains_key(name) {
+            return Err(EvalError::SymbolConflict(name.to_owned()));
+        }
+        self.symbols.insert(name, Rc::new(Symbol::Value(value)));
+        Ok(())
+    }
+
     /// Imports a module or symbol into this scope.
     ///
     /// # Errors
