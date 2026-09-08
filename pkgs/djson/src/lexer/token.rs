@@ -1,24 +1,32 @@
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
-    Sep,
+    Id(&'a str),
+
+    // Values
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    Str(&'a str),
+
+    // Operators
     Add,
     Sub,
-    Exp,
     Mul,
     Div,
-    Colon,
+    Exp,
     Eq,
     Equal,
+
+    // Punctuation
+    Sep,
+    Colon,
+    Dot,
+
+    // Delimiters
     LParen,
     RParen,
     LBracket,
     RBracket,
     LBrace,
     RBrace,
-    Dot,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    Str(&'a str),
-    Id(&'a str),
 }

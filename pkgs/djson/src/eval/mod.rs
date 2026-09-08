@@ -11,8 +11,8 @@ pub mod stdlib;
 pub use document::{Document, Map, Value};
 
 use crate::{
-    ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
     eval::scope::Scope,
+    parser::ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
 };
 
 pub fn evaluate_ast<'input>(

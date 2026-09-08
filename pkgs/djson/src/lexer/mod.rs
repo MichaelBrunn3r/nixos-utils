@@ -34,33 +34,33 @@ impl<'input> Iterator for Lexer<'input> {
         let c = self.peek_char()?;
 
         let token = match c {
-            ',' | '\n' => Ok(Token::Sep),
-            '(' => Ok(Token::LParen),
-            ')' => Ok(Token::RParen),
-            '[' => Ok(Token::LBracket),
-            ']' => Ok(Token::RBracket),
-            '{' => Ok(Token::LBrace),
-            '}' => Ok(Token::RBrace),
-            '.' => Ok(Token::Dot),
-            '+' => Ok(Token::Add),
-            '-' => Ok(Token::Sub),
-            '^' => Ok(Token::Exp),
+            ',' | '\n' => Token::Sep,
+            '(' => Token::LParen,
+            ')' => Token::RParen,
+            '[' => Token::LBracket,
+            ']' => Token::RBracket,
+            '{' => Token::LBrace,
+            '}' => Token::RBrace,
+            '.' => Token::Dot,
+            '+' => Token::Add,
+            '-' => Token::Sub,
+            '^' => Token::Exp,
             '*' => {
                 if self.starts_with("**") {
                     self.next_char();
-                    Ok(Token::Exp)
+                    Token::Exp
                 } else {
-                    Ok(Token::Mul)
+                    Token::Mul
                 }
             }
-            '/' => Ok(Token::Div),
-            ':' => Ok(Token::Colon),
+            '/' => Token::Div,
+            ':' => Token::Colon,
             '=' => {
                 if self.starts_with("==") {
                     self.next_char();
-                    Ok(Token::Equal)
+                    Token::Equal
                 } else {
-                    Ok(Token::Eq)
+                    Token::Eq
                 }
             }
             '"' | '\'' => return Some(self.read_string(c)),
@@ -69,7 +69,7 @@ impl<'input> Iterator for Lexer<'input> {
         };
 
         self.next_char();
-        Some(token)
+        Some(Ok(token))
     }
 }
 

@@ -1,9 +1,15 @@
 #![allow(clippy::missing_errors_doc)]
 
+pub mod ast;
+
 use std::iter::Peekable;
 
-use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp};
-use crate::lexer::{Lexer, LexerError, token::Token};
+use ast::AST;
+
+use crate::{
+    lexer::{Lexer, LexerError, token::Token},
+    parser::ast::{BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp},
+};
 
 //region Parser
 pub struct Parser<'input> {
@@ -311,8 +317,10 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::Parser;
-    use crate::ast::{Expr, Identifier, KV, Let, Statement};
-    use crate::test_utils::dedent;
+    use crate::{
+        parser::ast::{Expr, Identifier, KV, Let, Statement},
+        test_utils::dedent,
+    };
 
     #[test]
     fn parses_cases() {
