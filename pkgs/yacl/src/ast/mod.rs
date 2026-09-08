@@ -11,19 +11,12 @@ pub enum Statement<'input> {
     Expr(Expr<'input>),
     KV(KV<'input>),
     Let(Let<'input>),
-    Use(Use<'input>),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Let<'input> {
     pub name: &'input str,
     pub expr: Expr<'input>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Use<'input> {
-    pub path: Vec<&'input str>,
-    pub wildcard: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -35,7 +28,6 @@ pub struct KV<'input> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Identifier<'input> {
     Simple(&'input str),
-    Qualified(Vec<&'input str>),
 }
 
 #[derive(Debug, PartialEq, Eq)]

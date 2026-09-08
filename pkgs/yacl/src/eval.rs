@@ -5,11 +5,10 @@
 )]
 
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
 use crate::{
     ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
-    scope::{BuiltinFunction, Scope, Symbol},
+    scope::{BuiltinFunction, Scope},
     stdlib,
 };
 
@@ -26,10 +25,6 @@ pub fn evaluate_ast<'input>(
             Statement::Let(binding) => {
                 let value = evaluate_expr(&binding.expr, &scope)?;
                 scope.bind_value(binding.name, value)?;
-                continue;
-            }
-            Statement::Use(import) => {
-                scope.import(import, root)?;
                 continue;
             }
             Statement::Expr(node) => {
@@ -86,14 +81,11 @@ fn evaluate_expr<'input>(
         }
         Expr::Access { object, name } => evaluate_access(object, name, scope),
         Expr::Id(identifier) => {
-            let path = match identifier {
-                Identifier::Simple(name) => std::slice::from_ref(name),
-                Identifier::Qualified(path) => path,
-            };
-            let symbol = scope
-                .resolve_path(path)
-                .ok_or_else(|| EvalError::UnknownIdentifier(path.join(".")))?;
-            Ok(symbol_to_value(&symbol))
+            let Identifier::Simple(name) = identifier;
+            let value = scope
+                .resolve(name)
+                .ok_or_else(|| EvalError::UnknownIdentifier((*name).to_owned()))?;
+            Ok(value)
         }
         Expr::Unary { op, value } => evaluate_unary(op, evaluate_expr(value, scope)?),
         Expr::Binary { left, op, right } => evaluate_binary(
@@ -111,31 +103,23 @@ fn evaluate_access<'input>(
     scope: &Scope<'input>,
 ) -> Result<Value<'input>, EvalError> {
     let object = evaluate_expr(object, scope)?;
-    if let Value::Map(map) = &object {
-        return map
+    resolve_member(&object, name).map(|(value, _)| value)
+}
+
+fn resolve_member<'input>(
+    object: &Value<'input>,
+    name: &str,
+) -> Result<(Value<'input>, bool), EvalError> {
+    match object {
+        Value::Map(map) => map
             .get(name)
             .cloned()
-            .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned()));
-    }
-    resolve_member(&object, name)
-}
-
-fn resolve_member<'input>(object: &Value<'input>, name: &str) -> Result<Value<'input>, EvalError> {
-    match object {
-        Value::Scope(object) => object
-            .resolve_path(std::slice::from_ref(&name))
-            .map(|symbol| symbol_to_value(&symbol))
+            .map(|value| (value, false))
+            .or_else(|| stdlib::type_member(object, name).map(|value| (value, true)))
             .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
         value => stdlib::type_member(value, name)
+            .map(|value| (value, true))
             .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
-    }
-}
-
-fn symbol_to_value<'input>(symbol: &Symbol<'input>) -> Value<'input> {
-    match symbol {
-        Symbol::Value(value) => value.clone(),
-        Symbol::Function(function) => Value::Function(*function),
-        Symbol::Scope(scope) => Value::Scope(Rc::new(scope.clone())),
     }
 }
 
@@ -151,20 +135,15 @@ fn evaluate_call<'input>(
                 EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
                 error => error,
             })?;
-            if let Value::Map(map) = &object {
-                map.get(name)
-                    .cloned()
-                    .ok_or_else(|| EvalError::UnknownFunction((*name).to_owned()))?
-            } else {
-                let value = resolve_member(&object, name).map_err(|error| match error {
+            let (value, binds_receiver) =
+                resolve_member(&object, name).map_err(|error| match error {
                     EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
                     error => error,
                 })?;
-                if !matches!(object, Value::Scope(_)) {
-                    receiver = Some(object);
-                }
-                value
+            if binds_receiver {
+                receiver = Some(object);
             }
+            value
         }
         callee => evaluate_expr(callee, scope).map_err(|error| match error {
             EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
@@ -284,7 +263,6 @@ pub enum Value<'input> {
     List(Vec<Self>),
     Map(Map<'input>),
     Function(BuiltinFunction),
-    Scope(Rc<Scope<'input>>),
 }
 
 impl PartialEq for Value<'_> {
@@ -296,7 +274,6 @@ impl PartialEq for Value<'_> {
             (Self::Str(left), Self::Str(right)) => left == right,
             (Self::List(left), Self::List(right)) => left == right,
             (Self::Map(left), Self::Map(right)) => left == right,
-            (Self::Scope(left), Self::Scope(right)) => Rc::ptr_eq(left, right),
             _ => false,
         }
     }
@@ -411,6 +388,10 @@ mod tests {
             evaluate("let std = import(\"std\")\nstd.math.sin(std.math.PI / 2)"),
             Ok(Value::Float(1.0))
         );
+        assert_eq!(
+            evaluate("let std = import(\"std\")\nstd.types.int.sqrt(9)"),
+            Ok(Value::Float(3.0))
+        );
     }
 
     #[test]
@@ -471,33 +452,6 @@ mod tests {
         assert_eq!(
             evaluate("result: 9.sqrt()"),
             Ok(Value::Map(BTreeMap::from([("result", Value::Float(3.0),)])))
-        );
-    }
-
-    #[test]
-    fn accesses_scope_returned_by_a_function_call() {
-        #[allow(clippy::unnecessary_wraps)]
-        fn make_scope<'input>(_: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
-            Ok(Value::Scope(Rc::new(Scope::from_symbols([(
-                "d",
-                Symbol::Value(Value::Int(7)),
-            )]))))
-        }
-
-        let root = Rc::new(Scope::from_symbols([(
-            "a",
-            Symbol::Scope(Scope::from_symbols([(
-                "b",
-                Symbol::Scope(Scope::from_symbols([("c", Symbol::Function(make_scope))])),
-            )])),
-        )]));
-
-        assert_eq!(
-            evaluate_ast(
-                &Parser::new("a.b.c().d").parse().expect("valid input"),
-                &root,
-            ),
-            Ok(Value::Int(7))
         );
     }
 

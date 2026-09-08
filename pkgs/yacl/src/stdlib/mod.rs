@@ -9,7 +9,7 @@ pub mod string;
 use std::rc::Rc;
 
 use crate::eval::{EvalError, Value};
-use crate::scope::{Scope, Symbol};
+use crate::scope::Scope;
 
 /// Constructs the standard lexical prelude.
 ///
@@ -17,7 +17,7 @@ use crate::scope::{Scope, Symbol};
 /// always provides `import` for expression-based module loading.
 #[must_use]
 pub fn prelude() -> Rc<Scope<'static>> {
-    Rc::new(Scope::from_symbols([("import", Symbol::Function(import))]))
+    Rc::new(Scope::from_values([("import", Value::Function(import))]))
 }
 
 #[must_use]
@@ -41,7 +41,10 @@ pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eval
 }
 
 fn std_map() -> crate::eval::Map<'static> {
-    crate::eval::Map::from([("math", Value::Map(math::create_map()))])
+    crate::eval::Map::from([
+        ("math", Value::Map(math::create_map())),
+        ("types", Value::Map(types_map())),
+    ])
 }
 
 fn types_map() -> crate::eval::Map<'static> {
@@ -63,7 +66,7 @@ pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<V
         Value::List(_) => "list",
         Value::Map(_) => "map",
         Value::Str(_) => "str",
-        Value::Function(_) | Value::Scope(_) => return None,
+        Value::Function(_) => return None,
     };
 
     let types = types_map();
@@ -80,8 +83,8 @@ mod tests {
     #[test]
     fn prelude_exposes_only_import() {
         let prelude = prelude();
-        assert!(prelude.resolve_path(&["import"]).is_some());
-        assert!(prelude.resolve_path(&["types"]).is_none());
-        assert!(prelude.resolve_path(&["std"]).is_none());
+        assert!(prelude.resolve("import").is_some());
+        assert!(prelude.resolve("types").is_none());
+        assert!(prelude.resolve("std").is_none());
     }
 }

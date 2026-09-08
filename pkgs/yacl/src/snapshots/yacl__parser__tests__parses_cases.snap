@@ -10,7 +10,7 @@ ast: map{a: 1, b: 2, "key with spaces": 3}
 
 expression statements
 input: `1 + 2 * 3`
-ast: Expr(Add(1, Mul(2, 3)))
+ast: [Expr(Add(1, Mul(2, 3)))]
 
 math expressions
 input: `sum: 1 + 2
@@ -41,10 +41,10 @@ input: `inline: foo(1, 2,3)
         )`
 ast: map{inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])}
 
-use statements
-input: `use std
-        use std.sin
-        use std.*`
-ast: Use(std)
-Use(std.sin)
-Use(std.*)
+import expressions
+input: `let std = import("std")
+        std.math.sin(0)`
+ast: [
+    let std = Call(import, ["std"]),
+    Expr(Call(Access(Access(std, math), sin), [0]))
+]

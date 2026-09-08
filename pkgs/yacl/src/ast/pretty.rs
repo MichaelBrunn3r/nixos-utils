@@ -65,12 +65,18 @@ impl AST<'_> {
                 text("}"),
             ]))
         } else {
-            join(
+            let statements = join(
                 self.statements
                     .iter()
                     .map(|statement| statement.pretty_doc(config)),
-                &Doc::HardLine,
-            )
+                &concat([text(","), Doc::Line]),
+            );
+            group(concat([
+                text("["),
+                nest(config.indent_width, concat([Doc::SoftLine, statements])),
+                Doc::SoftLine,
+                text("]"),
+            ]))
         }
     }
 }
@@ -181,16 +187,6 @@ impl Statement<'_> {
                 text(" = "),
                 binding.expr.pretty_doc(config),
             ]),
-            Self::Use(use_statement) => concat([
-                text("Use("),
-                path_document(&use_statement.path),
-                if use_statement.wildcard {
-                    text(".*")
-                } else {
-                    Doc::Nil
-                },
-                text(")"),
-            ]),
         }
     }
 }
@@ -207,7 +203,6 @@ enum Doc {
     Text(String),
     Line,
     SoftLine,
-    HardLine,
     Concat(Vec<Self>),
     Nest(usize, Box<Self>),
     Group(Box<Self>),
@@ -247,11 +242,6 @@ impl Doc {
                         write_indentation(writer, indent)?;
                         column = indent;
                     }
-                }
-                Self::HardLine => {
-                    writer.write_char('\n')?;
-                    write_indentation(writer, indent)?;
-                    column = indent;
                 }
                 Self::Concat(documents) => {
                     for doc in documents.into_iter().rev() {
@@ -320,7 +310,7 @@ fn flatten(document: &Doc) -> Doc {
         Doc::Nil => Doc::Nil,
         Doc::Text(value) => text(value.clone()),
         Doc::Line => text(" "),
-        Doc::SoftLine | Doc::HardLine => text(""),
+        Doc::SoftLine => text(""),
         Doc::Concat(documents) => concat(documents.iter().map(flatten)),
         Doc::Nest(amount, document) => nest(*amount, flatten(document)),
         Doc::Group(document) => flatten(document),
@@ -340,7 +330,7 @@ fn fits(mut remaining: usize, stack: &[(usize, Mode, Doc)], first: (usize, Doc))
                 }
                 remaining -= value.len();
             }
-            Doc::Line | Doc::SoftLine | Doc::HardLine => {
+            Doc::Line | Doc::SoftLine => {
                 if matches!(mode, Mode::Break) {
                     return true;
                 }
@@ -380,10 +370,5 @@ fn write_indentation<W: Write>(writer: &mut W, indent: usize) -> fmt::Result {
 fn identifier_document(identifier: &Identifier<'_>) -> Doc {
     match identifier {
         Identifier::Simple(value) => text(*value),
-        Identifier::Qualified(path) => path_document(path),
     }
-}
-
-fn path_document(path: &[&str]) -> Doc {
-    join(path.iter().map(|part| text(*part)), &text("."))
 }

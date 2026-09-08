@@ -2,7 +2,7 @@
 
 use std::iter::Peekable;
 
-use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp, Use};
+use crate::ast::{AST, BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp};
 use crate::lexer::{Lexer, LexerError, Token};
 
 //region Parser
@@ -34,10 +34,6 @@ impl<'input> Parser<'input> {
         if matches!(self.tokens.peek(), Some(Ok(Token::Id("let")))) {
             return self.parse_let();
         }
-        if matches!(self.tokens.peek(), Some(Ok(Token::Id("use")))) {
-            return self.parse_use();
-        }
-
         let expression = self.parse_expression(0)?;
 
         if !matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
@@ -72,30 +68,6 @@ impl<'input> Parser<'input> {
             name,
             expr: self.parse_expression(0)?,
         }))
-    }
-
-    fn parse_use(&mut self) -> Result<Statement<'input>, ParseError> {
-        self.next_token()?;
-        let mut path = vec![match self.next_token()? {
-            Token::Id(value) => value,
-            token => return Err(Self::unexpected(&token, "expected an identifier")),
-        }];
-        let mut wildcard = false;
-
-        while matches!(self.tokens.peek(), Some(Ok(Token::Dot))) {
-            self.next_token()?;
-            if matches!(self.tokens.peek(), Some(Ok(Token::Mul))) {
-                self.next_token()?;
-                wildcard = true;
-                break;
-            }
-            path.push(match self.next_token()? {
-                Token::Id(value) => value,
-                token => return Err(Self::unexpected(&token, "expected an identifier")),
-            });
-        }
-
-        Ok(Statement::Use(Use { path, wildcard }))
     }
 
     fn parse_expression(&mut self, min_binding_power: u8) -> Result<Expr<'input>, ParseError> {
@@ -366,10 +338,9 @@ mod tests {
                  )",
             ),
             (
-                "use statements",
-                "use std
-                 use std.sin
-                 use std.*",
+                "import expressions",
+                "let std = import(\"std\")
+                 std.math.sin(0)",
             ),
         ];
 
