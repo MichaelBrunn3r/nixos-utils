@@ -94,6 +94,24 @@ impl Expr<'_> {
                     text("]"),
                 ]))
             }
+            Self::Map(entries) => {
+                let entries = join(
+                    entries.iter().map(|entry| {
+                        concat([
+                            key_document(entry.key),
+                            text(": "),
+                            entry.expr.pretty_doc(config),
+                        ])
+                    }),
+                    &concat([text(","), Doc::Line]),
+                );
+                group(concat([
+                    text("{"),
+                    nest(config.indent_width, concat([Doc::SoftLine, entries])),
+                    Doc::SoftLine,
+                    text("}"),
+                ]))
+            }
             Self::Id(identifier) => identifier_document(identifier),
             Self::Unary { op, value } => {
                 let operator = match op {
@@ -154,7 +172,7 @@ impl Statement<'_> {
             Self::Expr(expr) => concat([text("Expr("), expr.pretty_doc(config), text(")")]),
             Self::KV(pair) => concat([
                 key_document(pair.key),
-                text(" = "),
+                text(": "),
                 pair.expr.pretty_doc(config),
             ]),
             Self::Use(use_statement) => concat([

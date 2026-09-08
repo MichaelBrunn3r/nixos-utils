@@ -54,6 +54,7 @@ pub enum Expr<'input> {
     Float(f64),
     Str(&'input str),
     List(Vec<Self>),
+    Map(Vec<KV<'input>>),
     Id(Identifier<'input>),
     Access {
         object: Box<Self>,

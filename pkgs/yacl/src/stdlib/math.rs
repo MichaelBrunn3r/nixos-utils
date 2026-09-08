@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn evaluates_math_builtins_through_the_pipeline() {
         let document = evaluate(
-            "use std.math.*\nminimum = 4.min(2)\nmaximum = 2.5.max(4.0)\nlimited = 12.clamp(0, 10)\nlimited_float = 12.5.clamp(0.0, 10.0)\nnatural_log = 1.ln()\nbase_two_log = 8.log(2)\nbase_ten_log = 100.log(10)\ntangent = tan(0)\narcsine = asin(0)\narccosine = acos(1)\narctangent = atan(0)\nquadrant = atan2(1, 0)\nfinite = 1.0.is_finite()\ninfinite = 1.0.is_infinite()\nnan = 1.0.is_nan()\npi_value = PI\ninfinity_value = INFINITY\nnan_value = NAN",
+            "use std.math.*\nminimum: 4.min(2)\nmaximum: 2.5.max(4.0)\nlimited: 12.clamp(0, 10)\nlimited_float: 12.5.clamp(0.0, 10.0)\nnatural_log: 1.ln()\nbase_two_log: 8.log(2)\nbase_ten_log: 100.log(10)\ntangent: tan(0)\narcsine: asin(0)\narccosine: acos(1)\narctangent: atan(0)\nquadrant: atan2(1, 0)\nfinite: 1.0.is_finite()\ninfinite: 1.0.is_infinite()\nnan: 1.0.is_nan()\npi_value: PI\ninfinity_value: INFINITY\nnan_value: NAN",
         )
         .expect("math builtins should evaluate");
 
@@ -138,15 +138,15 @@ mod tests {
     #[test]
     fn rejects_invalid_math_arguments_through_the_pipeline() {
         assert_eq!(
-            evaluate("use std.math.*\nresult = cos(true)"),
+            evaluate("use std.math.*\nresult: cos(true)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(
-            evaluate("use std.math.*\nresult = sin(1, 2)"),
+            evaluate("use std.math.*\nresult: sin(1, 2)"),
             Err(EvalError::TypeMismatch)
         );
         assert_eq!(
-            evaluate("result = 10.clamp(1)"),
+            evaluate("result: 10.clamp(1)"),
             Err(EvalError::TypeMismatch)
         );
     }

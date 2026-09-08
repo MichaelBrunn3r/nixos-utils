@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn evaluates_string_methods() {
         let value = evaluate(
-            "char_length = \"héllo\".len_chars()\nbyte_length = \"héllo\".len_bytes()\nempty = \"\".is_empty()\nascii = \"hello\".is_ascii()\ncontains = \"hello\".contains(\"ell\")\nstarts = \"hello\".starts_with(\"he\")\nends = \"hello\".ends_with(\"lo\")\ncount = \"hello hello\".count(\"hello\")",
+            "char_length: \"héllo\".len_chars()\nbyte_length: \"héllo\".len_bytes()\nempty: \"\".is_empty()\nascii: \"hello\".is_ascii()\ncontains: \"hello\".contains(\"ell\")\nstarts: \"hello\".starts_with(\"he\")\nends: \"hello\".ends_with(\"lo\")\ncount: \"hello hello\".count(\"hello\")",
         )
         .expect("string methods should evaluate");
 

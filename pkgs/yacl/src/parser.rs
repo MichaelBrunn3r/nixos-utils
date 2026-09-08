@@ -37,7 +37,7 @@ impl<'input> Parser<'input> {
 
         let expression = self.parse_expression(0)?;
 
-        if !matches!(self.tokens.peek(), Some(Ok(Token::Eq))) {
+        if !matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
             return Ok(Statement::Expr(expression));
         }
 
@@ -120,6 +120,7 @@ impl<'input> Parser<'input> {
             Token::Float(value) => self.parse_postfix(Expr::Float(value)),
             Token::Str(value) => self.parse_postfix(Expr::Str(value)),
             Token::LBracket => self.parse_list(),
+            Token::LBrace => self.parse_map(),
             Token::Id(value) => self.parse_postfix(Expr::Id(Identifier::Simple(value))),
             Token::LParen => {
                 let expression = self.parse_expression(0)?;
@@ -216,6 +217,37 @@ impl<'input> Parser<'input> {
         self.parse_postfix(Expr::List(values))
     }
 
+    fn parse_map(&mut self) -> Result<Expr<'input>, ParseError> {
+        let mut entries = Vec::new();
+        self.skip_separators()?;
+
+        if !matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+            loop {
+                let key = match self.next_token()? {
+                    Token::Id(value) | Token::Str(value) => value,
+                    token => return Err(Self::unexpected(&token, "expected a map key")),
+                };
+                self.expect_next_token(&Token::Colon)?;
+                let expr = self.parse_expression(0)?;
+                entries.push(KV { key, expr });
+
+                if matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+                    break;
+                }
+
+                self.expect_next_token(&Token::Sep)?;
+                self.skip_separators()?;
+
+                if matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+                    break;
+                }
+            }
+        }
+
+        self.expect_next_token(&Token::RBrace)?;
+        self.parse_postfix(Expr::Map(entries))
+    }
+
     const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {
         match token {
             Token::Add => Some((10, 11, BinaryOp::Add)),
@@ -291,26 +323,26 @@ mod tests {
         let cases = vec![
             (
                 "key value pairs",
-                "a = 1
-                 b=2
-                 \"key with spaces\" = 3",
+                "a: 1
+                  b: 2
+                  \"key with spaces\": 3",
             ),
             ("expression statements", "1 + 2 * 3"),
             (
                 "math expressions",
-                "sum = 1 + 2
-                 difference = 5 - 2
-                 product = 2 * 3
-                 quotient = 8 / 2
-                 precedence = 1 + 2 * 3
-                 power = 2 ^ 3 ^ 4
-                 positive = +1
-                 negative = -2 ^ 2",
+                "sum: 1 + 2
+                 difference: 5 - 2
+                 product: 2 * 3
+                 quotient: 8 / 2
+                 precedence: 1 + 2 * 3
+                 power: 2 ^ 3 ^ 4
+                 positive: +1
+                 negative: -2 ^ 2",
             ),
             (
                 "function calls",
-                "inline = foo(1, 2,3)
-                 multiline = bar(
+                "inline: foo(1, 2,3)
+                 multiline: bar(
                     1
                     2,
                     3

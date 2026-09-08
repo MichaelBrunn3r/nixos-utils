@@ -3,43 +3,43 @@ source: pkgs/yacl/src/parser.rs
 expression: cases
 ---
 key value pairs
-input: `a = 1
-        b=2
-        "key with spaces" = 3`
-ast: map{a = 1, b = 2, "key with spaces" = 3}
+input: `a: 1
+        b: 2
+        "key with spaces": 3`
+ast: map{a: 1, b: 2, "key with spaces": 3}
 
 expression statements
 input: `1 + 2 * 3`
 ast: Expr(Add(1, Mul(2, 3)))
 
 math expressions
-input: `sum = 1 + 2
-        difference = 5 - 2
-        product = 2 * 3
-        quotient = 8 / 2
-        precedence = 1 + 2 * 3
-        power = 2 ^ 3 ^ 4
-        positive = +1
-        negative = -2 ^ 2`
+input: `sum: 1 + 2
+        difference: 5 - 2
+        product: 2 * 3
+        quotient: 8 / 2
+        precedence: 1 + 2 * 3
+        power: 2 ^ 3 ^ 4
+        positive: +1
+        negative: -2 ^ 2`
 ast: map{
-    sum = Add(1, 2),
-    difference = Sub(5, 2),
-    product = Mul(2, 3),
-    quotient = Div(8, 2),
-    precedence = Add(1, Mul(2, 3)),
-    power = Exp(2, Exp(3, 4)),
-    positive = Positive(1),
-    negative = Negative(Exp(2, 2))
+    sum: Add(1, 2),
+    difference: Sub(5, 2),
+    product: Mul(2, 3),
+    quotient: Div(8, 2),
+    precedence: Add(1, Mul(2, 3)),
+    power: Exp(2, Exp(3, 4)),
+    positive: Positive(1),
+    negative: Negative(Exp(2, 2))
 }
 
 function calls
-input: `inline = foo(1, 2,3)
-        multiline = bar(
+input: `inline: foo(1, 2,3)
+        multiline: bar(
            1
            2,
            3
         )`
-ast: map{inline = Call(foo, [1, 2, 3]), multiline = Call(bar, [1, 2, 3])}
+ast: map{inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])}
 
 use statements
 input: `use std

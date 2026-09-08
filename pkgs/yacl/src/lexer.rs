@@ -36,6 +36,8 @@ impl<'input> Iterator for Lexer<'input> {
             ')' => Ok(Token::RParen),
             '[' => Ok(Token::LBracket),
             ']' => Ok(Token::RBracket),
+            '{' => Ok(Token::LBrace),
+            '}' => Ok(Token::RBrace),
             '.' => Ok(Token::Dot),
             '+' => Ok(Token::Add),
             '-' => Ok(Token::Sub),
@@ -49,6 +51,7 @@ impl<'input> Iterator for Lexer<'input> {
                 }
             }
             '/' => Ok(Token::Div),
+            ':' => Ok(Token::Colon),
             '=' => {
                 if self.starts_with("==") {
                     self.next_char();
@@ -282,10 +285,13 @@ impl<'input> Lexer<'input> {
                         | '*'
                         | '/'
                         | '='
+                        | ':'
                         | '('
                         | ')'
                         | '['
                         | ']'
+                        | '{'
+                        | '}'
                         | '.'
                         | '"'
                         | '\''
@@ -311,12 +317,15 @@ pub enum Token<'a> {
     Exp,
     Mul,
     Div,
+    Colon,
     Eq,
     Equal,
     LParen,
     RParen,
     LBracket,
     RBracket,
+    LBrace,
+    RBrace,
     Dot,
     Bool(bool),
     Int(i64),
@@ -380,6 +389,12 @@ mod tests {
     fn distinguishes_assignment_and_equality() {
         let tokens: Vec<_> = Lexer::new("= ==").map(Result::unwrap).collect();
         assert_eq!(tokens, vec![super::Token::Eq, super::Token::Equal]);
+    }
+
+    #[test]
+    fn lexes_colon() {
+        let tokens: Vec<_> = Lexer::new(":").map(Result::unwrap).collect();
+        assert_eq!(tokens, vec![super::Token::Colon]);
     }
 
     #[test]

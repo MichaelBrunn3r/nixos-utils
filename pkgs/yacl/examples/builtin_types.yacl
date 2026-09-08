@@ -1,7 +1,7 @@
 use std.math.*
 
 // int
-int_methods = [
+int_methods: [
 	(-42).abs()     == 42,  // absolute value
 	42.clamp(0, 10) == 10,  // constrain to a range
 	1.ln()          == 0.0, // natural logarithm
@@ -14,7 +14,7 @@ int_methods = [
 ].all()
 
 // float
-float_methods = [
+float_methods: [
 	(-4.5).abs()            == 4.5,     // absolute value
 	3.25.ceil()             == 4,       // round up
 	42.5.clamp(0.0, 10.0)   == 10.0,    // constrain to a range
@@ -36,7 +36,7 @@ float_methods = [
 ].all()
 
 // string
-string_methods = [
+string_methods: [
 	"héllo".len_chars()             == 5,       // Unicode scalar count
 	"héllo".len_bytes()             == 6,       // UTF-8 byte count
 	"".is_empty()                   == true,    // empty-value check
@@ -48,7 +48,7 @@ string_methods = [
 ].all()
 
 // list
-list_methods = [
+list_methods: [
 	[true, true].all()  == true,  // whether every element is true
 	[false, true].any() == true,  // whether any element is true
 	[].is_empty()       == true,  // empty-value check

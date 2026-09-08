@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn evaluates_list_methods() {
         let value = evaluate(
-            "any = [false, true].any()\nempty = [].is_empty()\nnon_empty = [1].is_empty()\nlength = [1, 2, 3].len()\nfirst = [1, 2].first()\nlast = [1, 2].last()",
+            "any: [false, true].any()\nempty: [].is_empty()\nnon_empty: [1].is_empty()\nlength: [1, 2, 3].len()\nfirst: [1, 2].first()\nlast: [1, 2].last()",
         )
         .expect("list methods should evaluate");
 

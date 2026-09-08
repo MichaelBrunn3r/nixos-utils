@@ -68,6 +68,16 @@ fn evaluate_expr<'input>(
             .map(|value| evaluate_expr(value, scope))
             .collect::<Result<Vec<_>, _>>()
             .map(Value::List),
+        Expr::Map(entries) => {
+            let mut map = Map::new();
+            for entry in entries {
+                let value = evaluate_expr(&entry.expr, scope)?;
+                if map.insert(entry.key, value).is_some() {
+                    return Err(EvalError::DuplicateKey(entry.key.to_owned()));
+                }
+            }
+            Ok(Value::Map(map))
+        }
         Expr::Access { object, name } => evaluate_access(object, name, scope),
         Expr::Id(identifier) => {
             let path = match identifier {
@@ -95,6 +105,12 @@ fn evaluate_access<'input>(
     scope: &Scope<'input>,
 ) -> Result<Value<'input>, EvalError> {
     let object = evaluate_expr(object, scope)?;
+    if let Value::Map(map) = &object {
+        return map
+            .get(name)
+            .cloned()
+            .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned()));
+    }
     let symbol = resolve_member(&object, name, scope)?;
     Ok(symbol_to_value(&symbol))
 }
@@ -134,14 +150,20 @@ fn evaluate_call<'input>(
                 EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
                 error => error,
             })?;
-            let symbol = resolve_member(&object, name, scope).map_err(|error| match error {
-                EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
-                error => error,
-            })?;
-            if !matches!(object, Value::Scope(_)) {
-                receiver = Some(object);
+            if let Value::Map(map) = &object {
+                map.get(name)
+                    .cloned()
+                    .ok_or_else(|| EvalError::UnknownFunction((*name).to_owned()))?
+            } else {
+                let symbol = resolve_member(&object, name, scope).map_err(|error| match error {
+                    EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
+                    error => error,
+                })?;
+                if !matches!(object, Value::Scope(_)) {
+                    receiver = Some(object);
+                }
+                symbol_to_value(&symbol)
             }
-            symbol_to_value(&symbol)
         }
         callee => evaluate_expr(callee, scope).map_err(|error| match error {
             EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
@@ -323,22 +345,22 @@ mod tests {
         let cases = vec![
             (
                 "literal entries",
-                "count = 3",
+                "count: 3",
                 vec![("count", Value::Int(3))],
             ),
             (
                 "boolean literal",
-                "enabled = true",
+                "enabled: true",
                 vec![("enabled", Value::Bool(true))],
             ),
             (
                 "nested numeric expression",
-                "result = 1 + 2 * 3",
+                "result: 1 + 2 * 3",
                 vec![("result", Value::Int(7))],
             ),
             (
                 "unary and mixed numeric expressions",
-                "negative = -2\nmixed = 1 + 2.5",
+                "negative: -2\nmixed: 1 + 2.5",
                 vec![("negative", Value::Int(-2)), ("mixed", Value::Float(3.5))],
             ),
         ];
@@ -349,10 +371,34 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_map_literals_and_member_access() {
+        assert_eq!(
+            evaluate("{outer: {value: 7}, \"quoted-key\": true}.outer.value"),
+            Ok(Value::Int(7))
+        );
+        assert_eq!(
+            evaluate("{\"quoted-key\": true}"),
+            Ok(Value::Map(BTreeMap::from([(
+                "quoted-key",
+                Value::Bool(true),
+            )])))
+        );
+        assert_eq!(evaluate("{a: 1,}.a"), Ok(Value::Int(1)));
+    }
+
+    #[test]
+    fn rejects_duplicate_map_keys() {
+        assert_eq!(
+            evaluate("{value: 1, value: 2}"),
+            Err(EvalError::DuplicateKey("value".to_owned()))
+        );
+    }
+
+    #[test]
     fn evaluates_expression_documents_to_values() {
         assert_eq!(evaluate("1 + 2 * 3"), Ok(Value::Int(7)));
         assert_eq!(
-            evaluate("count = 3"),
+            evaluate("count: 3"),
             Ok(Value::Map(BTreeMap::from([("count", Value::Int(3))])))
         );
         assert_eq!(
@@ -394,14 +440,14 @@ mod tests {
 
     #[test]
     fn rejects_division_by_zero() {
-        assert_eq!(evaluate("result = 1 / 0"), Err(EvalError::DivisionByZero));
+        assert_eq!(evaluate("result: 1 / 0"), Err(EvalError::DivisionByZero));
     }
 
     #[test]
     fn resolves_chained_access_and_calls() {
         assert_eq!(evaluate("(types.int.sqrt)(9)"), Ok(Value::Float(3.0)));
         assert_eq!(
-            evaluate("result = 9.sqrt()"),
+            evaluate("result: 9.sqrt()"),
             Ok(Value::Map(BTreeMap::from([("result", Value::Float(3.0),)])))
         );
     }
@@ -438,37 +484,37 @@ mod tests {
         let cases = vec![
             (
                 "division by zero",
-                "valid = 1\nresult = 1 / 0",
+                "valid: 1\nresult: 1 / 0",
                 EvalError::DivisionByZero,
             ),
             (
                 "integer overflow",
-                "valid = 1\nresult = 9223372036854775807 + 1",
+                "valid: 1\nresult: 9223372036854775807 + 1",
                 EvalError::Overflow,
             ),
             (
                 "type mismatch",
-                "valid = 1\nresult = true + 1",
+                "valid: 1\nresult: true + 1",
                 EvalError::TypeMismatch,
             ),
             (
                 "unsupported expression",
-                "valid = 1\nresult = unknown",
+                "valid: 1\nresult: unknown",
                 EvalError::UnknownIdentifier("unknown".to_owned()),
             ),
             (
                 "unknown function",
-                "result = missing(1)",
+                "result: missing(1)",
                 EvalError::UnknownFunction("missing".to_owned()),
             ),
             (
                 "duplicate key",
-                "result = 1\nresult = 2",
+                "result: 1\nresult: 2",
                 EvalError::DuplicateKey("result".to_owned()),
             ),
             (
                 "mixed document forms",
-                "1\nresult = 2",
+                "1\nresult: 2",
                 EvalError::MixedDocumentForms,
             ),
             (
@@ -489,7 +535,7 @@ mod tests {
 
     #[test]
     fn rejects_duplicate_keys() {
-        assert_duplicate_key(&evaluate("count = 1\ncount = 2"), "count");
+        assert_duplicate_key(&evaluate("count: 1\ncount: 2"), "count");
     }
 
     #[test]
