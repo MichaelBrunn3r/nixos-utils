@@ -110,14 +110,21 @@ impl Expr<'_> {
                     text(")"),
                 ])
             }
-            Self::Call { path, arguments } => {
+            Self::Access { object, name } => concat([
+                text("Access("),
+                object.pretty_doc(config),
+                text(", "),
+                text(*name),
+                text(")"),
+            ]),
+            Self::Call { callee, arguments } => {
                 let arguments = join(
                     arguments.iter().map(|argument| argument.pretty_doc(config)),
                     &concat([text(","), Doc::Line]),
                 );
                 group(concat([
                     text("Call("),
-                    path_document(path),
+                    callee.pretty_doc(config),
                     text(", ["),
                     nest(config.indent_width, concat([Doc::SoftLine, arguments])),
                     Doc::SoftLine,

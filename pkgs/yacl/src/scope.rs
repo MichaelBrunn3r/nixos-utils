@@ -2,15 +2,16 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use crate::eval::{EvalError, Value};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Scope<'input> {
     pub symbols: BTreeMap<&'input str, SymbolRef<'input>>,
     parent: Option<Rc<Self>>,
 }
 
-type BuiltinFunction = for<'input> fn(&[Value<'input>]) -> Result<Value<'input>, EvalError>;
+pub type BuiltinFunction = for<'input> fn(&[Value<'input>]) -> Result<Value<'input>, EvalError>;
 pub type SymbolRef<'input> = Rc<Symbol<'input>>;
 
+#[derive(Debug)]
 pub enum Symbol<'input> {
     Value(Value<'input>),
     Function(BuiltinFunction),

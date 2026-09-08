@@ -115,27 +115,15 @@ impl<'input> Parser<'input> {
 
     fn parse_prefix_token(&mut self, token: Token<'input>) -> Result<Expr<'input>, ParseError> {
         match token {
-            Token::Bool(value) => Ok(Expr::Bool(value)),
-            Token::Int(value) => Ok(Expr::Int(value)),
-            Token::Float(value) => Ok(Expr::Float(value)),
-            Token::Str(value) => Ok(Expr::Str(value)),
-            Token::Id(value) => {
-                let mut path = vec![value];
-                while matches!(self.tokens.peek(), Some(Ok(Token::Dot))) {
-                    self.next_token()?;
-                    path.push(match self.next_token()? {
-                        Token::Id(value) => value,
-                        token => return Err(Self::unexpected(&token, "expected an identifier")),
-                    });
-                }
-
-                if matches!(self.tokens.peek(), Some(Ok(Token::LParen))) {
-                    self.parse_call(path)
-                } else if path.len() == 1 {
-                    Ok(Expr::Id(Identifier::Simple(value)))
-                } else {
-                    Ok(Expr::Id(Identifier::Qualified(path)))
-                }
+            Token::Bool(value) => self.parse_postfix(Expr::Bool(value)),
+            Token::Int(value) => self.parse_postfix(Expr::Int(value)),
+            Token::Float(value) => self.parse_postfix(Expr::Float(value)),
+            Token::Str(value) => self.parse_postfix(Expr::Str(value)),
+            Token::Id(value) => self.parse_postfix(Expr::Id(Identifier::Simple(value))),
+            Token::LParen => {
+                let expression = self.parse_expression(0)?;
+                self.expect_next_token(&Token::RParen)?;
+                self.parse_postfix(expression)
             }
             Token::Add => self.parse_unary(UnaryOp::Positive),
             Token::Sub => self.parse_unary(UnaryOp::Negative),
@@ -151,7 +139,29 @@ impl<'input> Parser<'input> {
         })
     }
 
-    fn parse_call(&mut self, path: Vec<&'input str>) -> Result<Expr<'input>, ParseError> {
+    fn parse_postfix(&mut self, mut expression: Expr<'input>) -> Result<Expr<'input>, ParseError> {
+        loop {
+            expression = match self.tokens.peek() {
+                Some(Ok(Token::Dot)) => {
+                    self.next_token()?;
+                    let name = match self.next_token()? {
+                        Token::Id(value) => value,
+                        token => {
+                            return Err(Self::unexpected(&token, "expected an identifier"));
+                        }
+                    };
+                    Expr::Access {
+                        object: Box::new(expression),
+                        name,
+                    }
+                }
+                Some(Ok(Token::LParen)) => self.parse_call(expression)?,
+                _ => return Ok(expression),
+            };
+        }
+    }
+
+    fn parse_call(&mut self, callee: Expr<'input>) -> Result<Expr<'input>, ParseError> {
         self.expect_next_token(&Token::LParen)?;
         let mut arguments = Vec::new();
         self.skip_separators()?;
@@ -174,7 +184,10 @@ impl<'input> Parser<'input> {
         }
 
         self.expect_next_token(&Token::RParen)?;
-        Ok(Expr::Call { path, arguments })
+        Ok(Expr::Call {
+            callee: Box::new(callee),
+            arguments,
+        })
     }
 
     const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {

@@ -5,10 +5,11 @@
 )]
 
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use crate::{
     ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
-    scope::{Scope, Symbol},
+    scope::{BuiltinFunction, Scope, Symbol},
 };
 
 pub fn evaluate_ast<'input>(
@@ -62,20 +63,16 @@ fn evaluate_expr<'input>(
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
         Expr::Str(value) => Ok(Value::Str(value)),
+        Expr::Access { object, name } => evaluate_access(object, name, scope),
         Expr::Id(identifier) => {
             let path = match identifier {
                 Identifier::Simple(name) => std::slice::from_ref(name),
                 Identifier::Qualified(path) => path,
             };
-            scope.resolve_path(path).map_or_else(
-                || Err(EvalError::UnknownIdentifier(path.join("."))),
-                |symbol| match symbol.as_ref() {
-                    Symbol::Value(value) => Ok(value.clone()),
-                    Symbol::Function(_) | Symbol::Scope(_) => {
-                        Err(EvalError::UnknownIdentifier(path.join(".")))
-                    }
-                },
-            )
+            let symbol = scope
+                .resolve_path(path)
+                .ok_or_else(|| EvalError::UnknownIdentifier(path.join(".")))?;
+            Ok(symbol_to_value(&symbol))
         }
         Expr::Unary { op, value } => evaluate_unary(op, evaluate_expr(value, scope)?),
         Expr::Binary { left, op, right } => evaluate_binary(
@@ -83,31 +80,79 @@ fn evaluate_expr<'input>(
             evaluate_expr(left, scope)?,
             evaluate_expr(right, scope)?,
         ),
-        Expr::Call { path, arguments } => evaluate_call(path, arguments, scope),
+        Expr::Call { callee, arguments } => evaluate_call(callee, arguments, scope),
+    }
+}
+
+fn evaluate_access<'input>(
+    object: &Expr<'input>,
+    name: &str,
+    scope: &Scope<'input>,
+) -> Result<Value<'input>, EvalError> {
+    let object = evaluate_expr(object, scope)?;
+    let symbol = resolve_member(&object, name, scope)?;
+    Ok(symbol_to_value(&symbol))
+}
+
+fn resolve_member<'input>(
+    object: &Value<'input>,
+    name: &str,
+    scope: &Scope<'input>,
+) -> Result<crate::scope::SymbolRef<'input>, EvalError> {
+    match object {
+        Value::Scope(object) => object
+            .resolve_path(std::slice::from_ref(&name))
+            .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
+        value => scope
+            .resolve_path(&["types", value.type_name(), name])
+            .ok_or_else(|| EvalError::UnknownIdentifier(name.to_owned())),
+    }
+}
+
+fn symbol_to_value<'input>(symbol: &Symbol<'input>) -> Value<'input> {
+    match symbol {
+        Symbol::Value(value) => value.clone(),
+        Symbol::Function(function) => Value::Function(*function),
+        Symbol::Scope(scope) => Value::Scope(Rc::new(scope.clone())),
     }
 }
 
 fn evaluate_call<'input>(
-    path: &[&str],
+    callee: &Expr<'input>,
     arguments: &[Expr<'input>],
     scope: &Scope<'input>,
 ) -> Result<Value<'input>, EvalError> {
-    let name = path.join(".");
-    let function = match scope.resolve_path(path) {
-        Some(symbol) => match symbol.as_ref() {
-            Symbol::Function(function) => *function,
-            Symbol::Value(_) | Symbol::Scope(_) => {
-                return Err(EvalError::UnknownFunction(name));
+    let mut receiver = None;
+    let callee = match callee {
+        Expr::Access { object, name } => {
+            let object = evaluate_expr(object, scope).map_err(|error| match error {
+                EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
+                error => error,
+            })?;
+            let symbol = resolve_member(&object, name, scope).map_err(|error| match error {
+                EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
+                error => error,
+            })?;
+            if !matches!(object, Value::Scope(_)) {
+                receiver = Some(object);
             }
-        },
-        None => {
-            return Err(EvalError::UnknownFunction(name));
+            symbol_to_value(&symbol)
         }
+        callee => evaluate_expr(callee, scope).map_err(|error| match error {
+            EvalError::UnknownIdentifier(name) => EvalError::UnknownFunction(name),
+            error => error,
+        })?,
     };
-    let arguments = arguments
+    let Value::Function(function) = callee else {
+        return Err(EvalError::UnknownFunction("value".to_owned()));
+    };
+    let mut arguments = arguments
         .iter()
         .map(|argument| evaluate_expr(argument, scope))
         .collect::<Result<Vec<_>, _>>()?;
+    if let Some(receiver) = receiver {
+        arguments.insert(0, receiver);
+    }
 
     function(&arguments)
 }
@@ -191,13 +236,43 @@ pub enum EvalError {
 pub type Document<'input> = Map<'input>;
 pub type Map<'input> = BTreeMap<&'input str, Value<'input>>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value<'input> {
     Bool(bool),
     Int(i64),
     Float(f64),
     Str(&'input str),
     Map(Map<'input>),
+    Function(BuiltinFunction),
+    Scope(Rc<Scope<'input>>),
+}
+
+impl PartialEq for Value<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Bool(left), Self::Bool(right)) => left == right,
+            (Self::Int(left), Self::Int(right)) => left == right,
+            (Self::Float(left), Self::Float(right)) => left == right,
+            (Self::Str(left), Self::Str(right)) => left == right,
+            (Self::Map(left), Self::Map(right)) => left == right,
+            (Self::Scope(left), Self::Scope(right)) => Rc::ptr_eq(left, right),
+            _ => false,
+        }
+    }
+}
+
+impl Value<'_> {
+    const fn type_name(&self) -> &'static str {
+        match self {
+            Self::Bool(_) => "bool",
+            Self::Int(_) => "int",
+            Self::Float(_) => "float",
+            Self::Str(_) => "str",
+            Self::Map(_) => "map",
+            Self::Function(_) => "function",
+            Self::Scope(_) => "scope",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -278,6 +353,42 @@ mod tests {
     #[test]
     fn rejects_division_by_zero() {
         assert_eq!(evaluate("result = 1 / 0"), Err(EvalError::DivisionByZero));
+    }
+
+    #[test]
+    fn resolves_chained_access_and_calls() {
+        assert_eq!(evaluate("(types.int.sqrt)(9)"), Ok(Value::Float(3.0)));
+        assert_eq!(
+            evaluate("result = 9.sqrt()"),
+            Ok(Value::Map(BTreeMap::from([("result", Value::Float(3.0),)])))
+        );
+    }
+
+    #[test]
+    fn accesses_scope_returned_by_a_function_call() {
+        #[allow(clippy::unnecessary_wraps)]
+        fn make_scope<'input>(_: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+            Ok(Value::Scope(Rc::new(Scope::from_symbols([(
+                "d",
+                Symbol::Value(Value::Int(7)),
+            )]))))
+        }
+
+        let root = Rc::new(Scope::from_symbols([(
+            "a",
+            Symbol::Scope(Scope::from_symbols([(
+                "b",
+                Symbol::Scope(Scope::from_symbols([("c", Symbol::Function(make_scope))])),
+            )])),
+        )]));
+
+        assert_eq!(
+            evaluate_ast(
+                &Parser::new("a.b.c().d").parse().expect("valid input"),
+                &root,
+            ),
+            Ok(Value::Int(7))
+        );
     }
 
     #[test]

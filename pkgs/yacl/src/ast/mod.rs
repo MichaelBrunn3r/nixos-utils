@@ -53,6 +53,10 @@ pub enum Expr<'input> {
     Float(f64),
     Str(&'input str),
     Id(Identifier<'input>),
+    Access {
+        object: Box<Self>,
+        name: &'input str,
+    },
     Unary {
         op: UnaryOp,
         value: Box<Self>,
@@ -63,7 +67,7 @@ pub enum Expr<'input> {
         right: Box<Self>,
     },
     Call {
-        path: Vec<&'input str>,
+        callee: Box<Self>,
         arguments: Vec<Self>,
     },
 }

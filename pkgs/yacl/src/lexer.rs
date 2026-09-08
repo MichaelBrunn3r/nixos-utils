@@ -177,7 +177,13 @@ impl<'input> Lexer<'input> {
                 '0'..='9' => {
                     self.next_char();
                 }
-                '.' => {
+                '.' if self.input[self.pos..]
+                    .chars()
+                    .nth(1)
+                    .is_some_and(|character| {
+                        character.is_ascii_digit() || matches!(character, '_' | '\'')
+                    }) =>
+                {
                     if has_decimals {
                         return Err(LexerError {
                             line: self.curr_line,
