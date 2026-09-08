@@ -22,3 +22,16 @@ pub fn dedent(input: &str) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
+
+#[must_use]
+pub fn fmt_snapshot_case(label: &str, fields: &[(&str, &str)]) -> String {
+    let fields = fields
+        .iter()
+        .map(|(label, value)| {
+            let value = value.trim_end().replace('\n', "\n        ");
+            format!("{label}: `{value}`")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{label}\n{fields}")
+}

@@ -1,0 +1,54 @@
+---
+source: pkgs/djson/src/lexer/mod.rs
+expression: cases
+---
+invalid number
+input: `{
+            foo: 1
+            overflow: 9223372036854775808
+            bar: 2
+        }`
+error: `lexer::invalid_number
+        
+          x invalid number
+           ,-[input.dj:3:15]
+         2 |     foo: 1
+         3 |     overflow: 9223372036854775808
+           :               ^^^^^^^^^|^^^^^^^^^
+           :                        `-- integer: too large
+         4 |     bar: 2
+           `----`
+
+unterminated string
+input: `{
+            foo: 1
+            unterminated: "hello world
+            bar: 2
+        }`
+error: `lexer::unterminated_string
+        
+          x unterminated string
+           ,-[input.dj:3:19]
+         2 |     foo: 1
+         3 |     unterminated: "hello world
+           :                   |
+           :                   `-- string starts here
+         4 |     bar: 2
+           `----`
+
+unterminated block comment
+input: `{
+            foo: 1
+            unterminated: "block" /* comment
+            bar: 2
+        }`
+error: `lexer::unterminated_comment
+        
+          x unterminated block comment
+           ,-[input.dj:3:27]
+         2 |     foo: 1
+         3 |     unterminated: "block" /* comment
+           :                           ^|
+           :                            `-- comment starts here
+         4 |     bar: 2
+           `----`

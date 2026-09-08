@@ -306,8 +306,8 @@ pub struct ParseError {
 impl From<LexerError> for ParseError {
     fn from(error: LexerError) -> Self {
         Self {
-            line: error.line,
-            message: error.message,
+            line: 0,
+            message: error.to_string(),
         }
     }
 }

@@ -2,22 +2,30 @@
 source: pkgs/djson/src/lexer/mod.rs
 expression: cases
 ---
-integer overflow
+comment: unterminated block
+input: `/* comment`
+error: `unterminated block comment`
+
+num: int overflow
 input: `9223372036854775808`
-error: invalid integer
+error: `invalid number`
 
-trailing num separator
+num: trailing separator
 input: `100_`
-error: invalid number separator
+error: `invalid number`
 
-num separator sequence
+num: separator sequence
 input: `1__000`
-error: invalid number separator
+error: `invalid number`
 
-heterogenous num separator sequence
+num: mixed separator sequence
 input: `1_'000`
-error: invalid number separator
+error: `invalid number`
 
-unterminated string
-input: `"unterminated`
-error: unterminated string
+str: unterminated `"`
+input: `"str`
+error: `unterminated string`
+
+str: unterminated `'`
+input: `'str`
+error: `unterminated string`
