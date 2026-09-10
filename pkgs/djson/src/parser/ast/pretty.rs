@@ -47,37 +47,18 @@ impl<'input> AST<'input> {
 
 impl AST<'_> {
     fn pretty_doc(&self, config: &ASTPrettyConfig) -> Doc {
-        if self
-            .statements
-            .iter()
-            .all(|statement| matches!(statement, Statement::KV(_)))
-        {
-            let entries = join(
-                self.statements
-                    .iter()
-                    .map(|statement| statement.pretty_doc(config)),
-                &concat([text(","), Doc::Line]),
-            );
-            group(concat([
-                text("map{"),
-                nest(config.indent_width, concat([Doc::SoftLine, entries])),
-                Doc::SoftLine,
-                text("}"),
-            ]))
-        } else {
-            let statements = join(
-                self.statements
-                    .iter()
-                    .map(|statement| statement.pretty_doc(config)),
-                &concat([text(","), Doc::Line]),
-            );
-            group(concat([
-                text("["),
-                nest(config.indent_width, concat([Doc::SoftLine, statements])),
-                Doc::SoftLine,
-                text("]"),
-            ]))
-        }
+        let statements = join(
+            self.statements
+                .iter()
+                .map(|statement| statement.pretty_doc(config)),
+            &concat([text(","), Doc::Line]),
+        );
+        group(concat([
+            text("["),
+            nest(config.indent_width, concat([Doc::SoftLine, statements])),
+            Doc::SoftLine,
+            text("]"),
+        ]))
     }
 }
 

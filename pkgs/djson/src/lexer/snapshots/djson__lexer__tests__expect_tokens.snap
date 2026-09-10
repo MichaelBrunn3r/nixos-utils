@@ -2,9 +2,9 @@
 source: pkgs/djson/src/lexer/mod.rs
 expression: cases
 ---
-operators
-input: `+ - * / ^ ** =`
-tokens: `[Add, Sub, Mul, Div, Exp, Exp, Eq]`
+operators and punctuation
+input: `+ - * / ^ ** = == :`
+tokens: `[Add, Sub, Mul, Div, Exp, Exp, Eq, Equal, Colon]`
 
 integer
 input: `0 42 0000123 123456789`
@@ -13,6 +13,10 @@ tokens: `[Int(0), Int(42), Int(123), Int(123456789)]`
 float
 input: `3.14 -0.5 1.0`
 tokens: `[Float(3.14), Sub, Float(0.5), Float(1.0)]`
+
+member access after numbers
+input: `1.floor() 1.0.floor()`
+tokens: `[Int(1), Dot, Id("floor"), LParen, RParen, Float(1.0), Dot, Id("floor"), LParen, RParen]`
 
 number separators
 input: `1_000 3'000.14 1._000`

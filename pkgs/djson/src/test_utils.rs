@@ -35,3 +35,34 @@ pub fn fmt_snapshot_case(label: &str, fields: &[(&str, &str)]) -> String {
         .join("\n");
     format!("{label}\n{fields}")
 }
+
+#[must_use]
+pub fn fmt_snapshot_cases<Cases, Case, Format>(cases: Cases, format: Format) -> String
+where
+    Cases: IntoIterator<Item = Case>,
+    Format: FnMut(Case) -> String,
+{
+    cases
+        .into_iter()
+        .map(format)
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+#[must_use]
+/// # Panics
+///
+/// Panics if miette cannot render the diagnostic report.
+pub fn fmt_diagnostic_case<E>(label: &str, input: &str, error: E) -> String
+where
+    E: miette::Diagnostic + Send + Sync + 'static,
+{
+    let handler = miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::none());
+    let report = miette::Report::new(error)
+        .with_source_code(miette::NamedSource::new("input.dj", input.to_owned()));
+    let mut rendered = String::new();
+    handler
+        .render_report(&mut rendered, report.as_ref())
+        .expect("rendering a diagnostic should succeed");
+    fmt_snapshot_case(label, &[("error", &rendered)])
+}

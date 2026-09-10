@@ -487,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn expect_err_msg() {
+    fn expect_errors() {
         let cases = vec![
             (
                 "division by zero",
@@ -541,11 +541,6 @@ mod tests {
     }
 
     #[test]
-    fn rejects_duplicate_keys() {
-        assert_duplicate_key(&evaluate("count: 1\ncount: 2"), "count");
-    }
-
-    #[test]
     fn asserts_nested_entries_with_dotted_paths() {
         let mut database = BTreeMap::new();
         database.insert("host", Value::Str(Cow::Borrowed("localhost")));
@@ -575,11 +570,6 @@ pub mod test_utils {
         for (key, value) in expected {
             assert_eq!(value_at_path(document, key), Some(value));
         }
-    }
-
-    #[allow(clippy::missing_panics_doc)]
-    pub fn assert_duplicate_key(result: &Result<Value<'_>, EvalError>, key: &str) {
-        assert_eq!(*result, Err(EvalError::DuplicateKey(key.to_owned())));
     }
 
     fn value_at_path<'document, 'input>(

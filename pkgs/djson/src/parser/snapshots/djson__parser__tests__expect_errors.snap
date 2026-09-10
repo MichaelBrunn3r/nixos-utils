@@ -1,0 +1,7 @@
+---
+source: pkgs/djson/src/parser/mod.rs
+expression: cases
+---
+adjacent top-level tokens
+input: `key key`
+error: `unexpected token`

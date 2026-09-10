@@ -1,12 +1,12 @@
 ---
-source: pkgs/djson/src/parser.rs
+source: pkgs/djson/src/parser/mod.rs
 expression: cases
 ---
 key value pairs
 input: `a: 1
         b: 2
         "key with spaces": 3`
-ast: map{a: 1, b: 2, "key with spaces": 3}
+ast: [a: 1, b: 2, "key with spaces": 3]
 
 expression statements
 input: `1 + 2 * 3`
@@ -21,7 +21,7 @@ input: `sum: 1 + 2
         power: 2 ^ 3 ^ 4
         positive: +1
         negative: -2 ^ 2`
-ast: map{
+ast: [
     sum: Add(1, 2),
     difference: Sub(5, 2),
     product: Mul(2, 3),
@@ -30,7 +30,7 @@ ast: map{
     power: Exp(2, Exp(3, 4)),
     positive: Positive(1),
     negative: Negative(Exp(2, 2))
-}
+]
 
 function calls
 input: `inline: foo(1, 2,3)
@@ -39,7 +39,7 @@ input: `inline: foo(1, 2,3)
            2,
            3
         )`
-ast: map{inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])}
+ast: [inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])]
 
 import expressions
 input: `let std = import("std")
@@ -48,3 +48,24 @@ ast: [
     let std = Call(import, ["std"]),
     Expr(Call(Access(Access(std, math), sin), [0]))
 ]
+
+keyword as top-level key
+input: `let: value`
+ast: [let: value]
+
+keyword as map key
+input: `{let: 1}`
+ast: [Expr({let: 1})]
+
+expression-shaped top-level key
+input: `not_a_string(): 2`
+ast: ["not_a_string()": 2]
+
+let binding with map
+input: `let value = { nested: 7 }`
+ast: [let value = {nested: 7}]
+
+let binding followed by a document field
+input: `let value = 7
+        result: value`
+ast: [let value = 7, result: value]

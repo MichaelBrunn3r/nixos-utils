@@ -370,18 +370,18 @@ pub enum InvalidNumberReason {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use miette::{GraphicalReportHandler, GraphicalTheme, NamedSource, Report};
 
     use super::Lexer;
-    use crate::test_utils::{dedent, fmt_snapshot_case};
+    use crate::test_utils::{dedent, fmt_diagnostic_case, fmt_snapshot_case, fmt_snapshot_cases};
 
     #[test]
     #[allow(clippy::approx_constant)]
-    fn tokens() {
+    fn expect_tokens() {
         let cases = vec![
-            ("operators", "+ - * / ^ ** ="),
+            ("operators and punctuation", "+ - * / ^ ** = == :"),
             ("integer", "0 42 0000123 123456789"),
             ("float", "3.14 -0.5 1.0"),
+            ("member access after numbers", "1.floor() 1.0.floor()"),
             ("number separators", "1_000 3'000.14 1._000"),
             ("identifiers around operators", "foo + bar/baz"),
             ("single quote strings and number separators", "'text' 1'000"),
@@ -400,44 +400,22 @@ mod tests {
             ),
         ];
 
-        let cases = cases
-            .into_iter()
-            .map(|(label, input)| {
-                let tokens = Lexer::new(input)
-                    .map(Result::unwrap)
-                    .map(|token| token.value)
-                    .collect::<Vec<_>>();
-                fmt_snapshot_case(
-                    label,
-                    &[("input", input), ("tokens", &format!("{tokens:?}"))],
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let tokens = Lexer::new(input)
+                .map(Result::unwrap)
+                .map(|token| token.value)
+                .collect::<Vec<_>>();
+            fmt_snapshot_case(
+                label,
+                &[("input", input), ("tokens", &format!("{tokens:?}"))],
+            )
+        });
 
         assert_snapshot!(cases);
     }
 
     #[test]
-    fn distinguishes_assignment_and_equality() {
-        let tokens = Lexer::new("= ==")
-            .map(Result::unwrap)
-            .map(|token| token.value)
-            .collect::<Vec<_>>();
-        assert_eq!(tokens, vec![super::Token::Eq, super::Token::Equal]);
-    }
-
-    #[test]
-    fn lexes_colon() {
-        let tokens = Lexer::new(":")
-            .map(Result::unwrap)
-            .map(|token| token.value)
-            .collect::<Vec<_>>();
-        assert_eq!(tokens, vec![super::Token::Colon]);
-    }
-
-    #[test]
-    fn errors() {
+    fn expect_errors() {
         let cases = vec![
             ("comment: unterminated block", "/* comment"),
             // invalid numbers
@@ -450,24 +428,20 @@ mod tests {
             ("str: unterminated `\'`", "'str"),
         ];
 
-        let cases = cases
-            .into_iter()
-            .map(|(label, input)| {
-                let error = Lexer::new(input)
-                    .next()
-                    .expect("expected a lexer result")
-                    .expect_err("expected a lexer error");
-                let error = error.to_string();
-                fmt_snapshot_case(label, &[("input", input), ("error", &error)])
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let error = Lexer::new(input)
+                .next()
+                .expect("expected a lexer result")
+                .expect_err("expected a lexer error");
+            let error = error.to_string();
+            fmt_snapshot_case(label, &[("input", input), ("error", &error)])
+        });
 
         assert_snapshot!(cases);
     }
 
     #[test]
-    fn diagnostics() {
+    fn expect_diagnostics() {
         let cases = [
             (
                 "int overflow",
@@ -503,24 +477,13 @@ mod tests {
             ),
         ];
 
-        let handler = GraphicalReportHandler::new_themed(GraphicalTheme::none());
-        let cases = cases
-            .into_iter()
-            .map(|(label, input)| {
-                let input = &dedent(input);
-                let error = Lexer::new(input)
-                    .find_map(Result::err)
-                    .expect("expected a lexer error");
-                let report = Report::new(error)
-                    .with_source_code(NamedSource::new("input.dj", input.to_owned()));
-                let mut rendered = String::new();
-                handler
-                    .render_report(&mut rendered, report.as_ref())
-                    .expect("rendering a lexer error should succeed");
-                fmt_snapshot_case(label, &[("error", &rendered)])
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let input = &dedent(input);
+            let error = Lexer::new(input)
+                .find_map(Result::err)
+                .expect("expected a lexer error");
+            fmt_diagnostic_case(label, input, error)
+        });
 
         assert_snapshot!(cases);
     }

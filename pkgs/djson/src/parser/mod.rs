@@ -459,16 +459,12 @@ pub enum ParserError {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use miette::{GraphicalReportHandler, GraphicalTheme, NamedSource, Report};
 
     use super::Parser;
-    use crate::{
-        parser::ast::{Expr, Identifier, KV, Let, Statement},
-        test_utils::{dedent, fmt_snapshot_case},
-    };
+    use crate::test_utils::{dedent, fmt_diagnostic_case, fmt_snapshot_case, fmt_snapshot_cases};
 
     #[test]
-    fn parses_cases() {
+    fn expect_asts() {
         let cases = vec![
             (
                 "key value pairs",
@@ -502,101 +498,45 @@ mod tests {
                 "let std = import(\"std\")
                  std.math.sin(0)",
             ),
+            ("keyword as top-level key", "let: value"),
+            ("keyword as map key", "{let: 1}"),
+            ("expression-shaped top-level key", "not_a_string(): 2"),
+            ("let binding with map", "let value = { nested: 7 }"),
+            (
+                "let binding followed by a document field",
+                "let value = 7
+                 result: value",
+            ),
         ];
 
-        let cases = cases
-            .into_iter()
-            .map(|(label, input)| {
-                let input = dedent(input);
-                let document = Parser::new(&input).parse().expect("valid document");
-                let input = input.replace('\n', "\n        ");
-                let ast = document.pretty_string();
-                format!("{label}\ninput: `{input}`\nast: {ast}")
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let input = dedent(input);
+            let document = Parser::new(&input).parse().expect("valid document");
+            let input = input.replace('\n', "\n        ");
+            let ast = document.pretty_string();
+            format!("{label}\ninput: `{input}`\nast: {ast}")
+        });
 
         assert_snapshot!(cases);
     }
 
     #[test]
-    fn parses_let_binding() {
-        let ast = Parser::new("let value = { nested: 7 }")
-            .parse()
-            .expect("let binding should parse");
-        assert_eq!(
-            ast.statements,
-            vec![Statement::Let(Let {
-                name: "value",
-                expr: Expr::Map(vec![KV {
-                    key: "nested",
-                    expr: Expr::Int(7),
-                }]),
-            })]
-        );
+    fn expect_errors() {
+        let cases = [("adjacent top-level tokens", "key key")];
 
-        let ast = Parser::new("let value = 7\nresult: value")
-            .parse()
-            .expect("let binding followed by a document field should parse");
-        assert!(matches!(
-            &ast.statements[1],
-            Statement::KV(KV {
-                key: "result",
-                expr: Expr::Id(Identifier::Simple("value")),
-            })
-        ));
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let error = Parser::new(input)
+                .parse()
+                .expect_err("expected a parser error");
+            let error = error.to_string();
+            fmt_snapshot_case(label, &[("input", input), ("error", &error)])
+        });
+
+        assert_snapshot!(cases);
     }
 
     #[test]
-    fn allows_let_as_map_key() {
-        let ast = Parser::new("{let : 1}").parse().expect("valid map");
-        assert_eq!(
-            ast.statements,
-            vec![Statement::Expr(Expr::Map(vec![KV {
-                key: "let",
-                expr: Expr::Int(1),
-            }]))]
-        );
-    }
-
-    #[test]
-    fn allows_let_as_top_level_key() {
-        let ast = Parser::new("let: value")
-            .parse()
-            .expect("valid top-level field");
-        assert_eq!(
-            ast.statements,
-            vec![Statement::KV(KV {
-                key: "let",
-                expr: Expr::Id(Identifier::Simple("value")),
-            })]
-        );
-    }
-
-    #[test]
-    fn allows_expression_shaped_top_level_keys() {
-        let ast = Parser::new("not_a_string(): 2")
-            .parse()
-            .expect("valid top-level key");
-        assert!(matches!(
-            &ast.statements[0],
-            Statement::KV(KV {
-                key: "not_a_string()",
-                expr: Expr::Int(2),
-            })
-        ));
-    }
-
-    #[test]
-    fn rejects_adjacent_top_level_tokens() {
-        let error = Parser::new("key key")
-            .parse()
-            .expect_err("adjacent top-level tokens should be rejected");
-        assert!(matches!(error, super::ParserError::UnexpectedToken { .. }));
-    }
-
-    #[test]
-    fn diagnostics() {
+    fn expect_diagnostics() {
         let cases = [
             (
                 "lexer error",
@@ -617,24 +557,13 @@ mod tests {
             ),
         ];
 
-        let handler = GraphicalReportHandler::new_themed(GraphicalTheme::none());
-        let cases = cases
-            .into_iter()
-            .map(|(label, input)| {
-                let input = &dedent(input);
-                let error = Parser::new(input)
-                    .parse()
-                    .expect_err("expected a parser error");
-                let report = Report::new(error)
-                    .with_source_code(NamedSource::new("input.dj", input.to_owned()));
-                let mut rendered = String::new();
-                handler
-                    .render_report(&mut rendered, report.as_ref())
-                    .expect("rendering a parser error should succeed");
-                fmt_snapshot_case(label, &[("error", &rendered)])
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let cases = fmt_snapshot_cases(cases, |(label, input)| {
+            let input = &dedent(input);
+            let error = Parser::new(input)
+                .parse()
+                .expect_err("expected a parser error");
+            fmt_diagnostic_case(label, input, error)
+        });
 
         assert_snapshot!(cases);
     }
