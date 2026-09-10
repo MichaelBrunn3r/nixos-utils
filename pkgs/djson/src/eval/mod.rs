@@ -8,10 +8,10 @@ pub mod document;
 pub mod scope;
 pub mod stdlib;
 
-pub use document::{Document, Map, Value};
+pub use document::{Document, Value};
 
 use crate::{
-    eval::scope::Scope,
+    eval::{document::map::Map, scope::Scope},
     parser::ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
 };
 
@@ -284,12 +284,9 @@ pub enum EvalError {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-    use std::collections::BTreeMap;
-
     use super::test_utils::*;
     use super::*;
-    use crate::parser::Parser;
+    use crate::{map, parser::Parser, value};
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
@@ -310,34 +307,30 @@ mod tests {
     #[test]
     fn evaluates_documents() {
         let cases = vec![
-            (
-                "literal entries",
-                "count: 3",
-                vec![("count", Value::Int(3))],
-            ),
+            ("literal entries", "count: 3", vec![("count", value!(3))]),
             (
                 "boolean literal",
                 "enabled: true",
-                vec![("enabled", Value::Bool(true))],
+                vec![("enabled", value!(true))],
             ),
             (
                 "none aliases",
                 "none_value: none\nnull_value: null\nnil_value: nil",
                 vec![
-                    ("none_value", Value::None),
-                    ("null_value", Value::None),
-                    ("nil_value", Value::None),
+                    ("none_value", value!(none)),
+                    ("null_value", value!(null)),
+                    ("nil_value", value!(nil)),
                 ],
             ),
             (
                 "nested numeric expression",
                 "result: 1 + 2 * 3",
-                vec![("result", Value::Int(7))],
+                vec![("result", value!(7))],
             ),
             (
                 "unary and mixed numeric expressions",
                 "negative: -2\nmixed: 1 + 2.5",
-                vec![("negative", Value::Int(-2)), ("mixed", Value::Float(3.5))],
+                vec![("negative", value!(-2)), ("mixed", value!(3.5))],
             ),
         ];
 
@@ -354,18 +347,15 @@ mod tests {
         );
         assert_eq!(
             evaluate("{\"quoted-key\": true}"),
-            Ok(Value::Map(BTreeMap::from([(
-                "quoted-key",
-                Value::Bool(true),
-            )])))
+            Ok(Value::Map(map! { "quoted-key": true }))
         );
-        assert_eq!(evaluate("{a: 1,}.a"), Ok(Value::Int(1)));
+        assert_eq!(evaluate("{a: 1,}.a"), Ok(value!(1)));
     }
 
     #[test]
     fn evaluates_none_aliases_as_equal() {
-        assert_eq!(evaluate("none == null"), Ok(Value::Bool(true)));
-        assert_eq!(evaluate("null == nil"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("none == null"), Ok(value!(true)));
+        assert_eq!(evaluate("null == nil"), Ok(value!(true)));
     }
 
     #[test]
@@ -378,26 +368,16 @@ mod tests {
 
     #[test]
     fn evaluates_expression_documents_to_values() {
-        assert_eq!(evaluate("1 + 2 * 3"), Ok(Value::Int(7)));
-        assert_eq!(
-            evaluate("count: 3"),
-            Ok(Value::Map(BTreeMap::from([("count", Value::Int(3))])))
-        );
-        assert_eq!(
-            evaluate("[1, 2 * 3, [4, 5]]"),
-            Ok(Value::List(vec![
-                Value::Int(1),
-                Value::Int(6),
-                Value::List(vec![Value::Int(4), Value::Int(5)]),
-            ]))
-        );
+        assert_eq!(evaluate("1 + 2 * 3"), Ok(value!(7)));
+        assert_eq!(evaluate("count: 3"), Ok(Value::Map(map! { count: 3 })));
+        assert_eq!(evaluate("[1, 2 * 3, [4, 5]]"), Ok(value!([1, 6, [4, 5]])));
     }
 
     #[test]
     fn evaluates_let_bindings_without_document_fields() {
         assert_eq!(
             evaluate("let value = { nested: 7 }\nresult: value.nested"),
-            Ok(Value::Map(BTreeMap::from([("result", Value::Int(7))])))
+            Ok(Value::Map(map! { result: 7 }))
         );
     }
 
@@ -405,11 +385,11 @@ mod tests {
     fn imports_standard_library_as_a_map() {
         assert_eq!(
             evaluate("let std = import(\"std\")\nstd.math.sin(std.math.PI / 2)"),
-            Ok(Value::Float(1.0))
+            Ok(value!(1.0))
         );
         assert_eq!(
             evaluate("let std = import(\"std\")\nstd.types.int.sqrt(9)"),
-            Ok(Value::Float(3.0))
+            Ok(value!(3.0))
         );
     }
 
@@ -432,24 +412,21 @@ mod tests {
 
     #[test]
     fn evaluates_strict_scalar_equality() {
-        assert_eq!(evaluate("1 == 1"), Ok(Value::Bool(true)));
-        assert_eq!(evaluate("1 == 2"), Ok(Value::Bool(false)));
-        assert_eq!(evaluate("1 == 1.0"), Ok(Value::Bool(false)));
-        assert_eq!(evaluate("true == true"), Ok(Value::Bool(true)));
-        assert_eq!(evaluate("\"value\" == \"value\""), Ok(Value::Bool(true)));
-        assert_eq!(evaluate("1 + 2 == 3"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("1 == 1"), Ok(value!(true)));
+        assert_eq!(evaluate("1 == 2"), Ok(value!(false)));
+        assert_eq!(evaluate("1 == 1.0"), Ok(value!(false)));
+        assert_eq!(evaluate("true == true"), Ok(value!(true)));
+        assert_eq!(evaluate("\"value\" == \"value\""), Ok(value!(true)));
+        assert_eq!(evaluate("1 + 2 == 3"), Ok(value!(true)));
     }
 
     #[test]
     fn decodes_string_escapes() {
         assert_eq!(
             evaluate(r#""line\n\t\"quote\"\\path""#),
-            Ok(Value::Str("line\n\t\"quote\"\\path".into()))
+            Ok(value!("line\n\t\"quote\"\\path"))
         );
-        assert_eq!(
-            evaluate(r#""unknown\q""#),
-            Ok(Value::Str(r"unknown\q".into()))
-        );
+        assert_eq!(evaluate(r#""unknown\q""#), Ok(value!(r"unknown\q")));
     }
 
     #[test]
@@ -461,11 +438,11 @@ mod tests {
     fn resolves_qualified_symbols_and_imports() {
         assert_eq!(
             evaluate("let std = import(\"std\")\nstd.math.PI"),
-            Ok(Value::Float(std::f64::consts::PI))
+            Ok(value!(std::f64::consts::PI))
         );
         assert_eq!(
             evaluate("let std = import(\"std\")\nstd.math.sin(std.math.PI / 2)"),
-            Ok(Value::Float(1.0))
+            Ok(value!(1.0))
         );
     }
 
@@ -478,11 +455,11 @@ mod tests {
     fn resolves_chained_access_and_calls() {
         assert_eq!(
             evaluate("let types = import(\"types\")\n(types.int.sqrt)(9)"),
-            Ok(Value::Float(3.0))
+            Ok(value!(3.0))
         );
         assert_eq!(
             evaluate("result: 9.sqrt()"),
-            Ok(Value::Map(BTreeMap::from([("result", Value::Float(3.0),)])))
+            Ok(Value::Map(map! { result: 3.0 }))
         );
     }
 
@@ -542,21 +519,13 @@ mod tests {
 
     #[test]
     fn asserts_nested_entries_with_dotted_paths() {
-        let mut database = BTreeMap::new();
-        database.insert("host", Value::Str(Cow::Borrowed("localhost")));
-
-        let mut server = BTreeMap::new();
-        server.insert("database", Value::Map(database));
-
-        let mut document = BTreeMap::new();
-        document.insert("server", Value::Map(server));
+        let document = map! {
+            server: value!({ database: { host: "localhost" } }),
+        };
 
         super::test_utils::assert_entries(
             &document,
-            &[(
-                "server.database.host",
-                Value::Str(Cow::Borrowed("localhost")),
-            )],
+            &[("server.database.host", value!("localhost"))],
         );
     }
 }

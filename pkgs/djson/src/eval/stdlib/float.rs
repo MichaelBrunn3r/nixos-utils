@@ -4,27 +4,30 @@
     clippy::missing_errors_doc
 )]
 
-use crate::eval::{EvalError, Map, Value};
+use crate::{
+    eval::{EvalError, Map, Value},
+    map,
+};
 
 #[must_use]
 pub fn create_map() -> Map<'static> {
-    Map::from([
-        ("abs", Value::Function(abs)),
-        ("ceil", Value::Function(ceil)),
-        ("clamp", Value::Function(clamp)),
-        ("floor", Value::Function(floor)),
-        ("ln", Value::Function(ln)),
-        ("log", Value::Function(log)),
-        ("log10", Value::Function(log10)),
-        ("log2", Value::Function(log2)),
-        ("is_finite", Value::Function(is_finite)),
-        ("is_infinite", Value::Function(is_infinite)),
-        ("is_nan", Value::Function(is_nan)),
-        ("max", Value::Function(max)),
-        ("min", Value::Function(min)),
-        ("round", Value::Function(round)),
-        ("sqrt", Value::Function(sqrt)),
-    ])
+    map! {
+        abs: Value::Function(abs),
+        ceil: Value::Function(ceil),
+        clamp: Value::Function(clamp),
+        floor: Value::Function(floor),
+        ln: Value::Function(ln),
+        log: Value::Function(log),
+        log10: Value::Function(log10),
+        log2: Value::Function(log2),
+        is_finite: Value::Function(is_finite),
+        is_infinite: Value::Function(is_infinite),
+        is_nan: Value::Function(is_nan),
+        max: Value::Function(max),
+        min: Value::Function(min),
+        round: Value::Function(round),
+        sqrt: Value::Function(sqrt),
+    }
 }
 
 pub const fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {

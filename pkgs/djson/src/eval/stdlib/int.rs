@@ -1,20 +1,23 @@
 #![allow(clippy::cast_precision_loss, clippy::missing_errors_doc)]
 
-use crate::eval::{EvalError, Map, Value};
+use crate::{
+    eval::{EvalError, Map, Value},
+    map,
+};
 
 #[must_use]
 pub fn create_map() -> Map<'static> {
-    Map::from([
-        ("abs", Value::Function(abs)),
-        ("clamp", Value::Function(clamp)),
-        ("ln", Value::Function(ln)),
-        ("log", Value::Function(log)),
-        ("log10", Value::Function(log10)),
-        ("log2", Value::Function(log2)),
-        ("max", Value::Function(max)),
-        ("min", Value::Function(min)),
-        ("sqrt", Value::Function(sqrt)),
-    ])
+    map! {
+        abs: Value::Function(abs),
+        clamp: Value::Function(clamp),
+        ln: Value::Function(ln),
+        log: Value::Function(log),
+        log10: Value::Function(log10),
+        log2: Value::Function(log2),
+        max: Value::Function(max),
+        min: Value::Function(min),
+        sqrt: Value::Function(sqrt),
+    }
 }
 
 pub fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {

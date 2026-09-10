@@ -1,18 +1,21 @@
 #![allow(clippy::missing_errors_doc)]
 
-use crate::eval::{EvalError, Map, Value};
+use crate::{
+    eval::{EvalError, Map, Value},
+    map,
+};
 
 #[must_use]
 pub fn create_map() -> Map<'static> {
-    Map::from([
-        ("all", Value::Function(all)),
-        ("any", Value::Function(any)),
-        ("equals", Value::Function(equals)),
-        ("first", Value::Function(first)),
-        ("is_empty", Value::Function(is_empty)),
-        ("last", Value::Function(last)),
-        ("len", Value::Function(len)),
-    ])
+    map! {
+        all: Value::Function(all),
+        any: Value::Function(any),
+        equals: Value::Function(equals),
+        first: Value::Function(first),
+        is_empty: Value::Function(is_empty),
+        last: Value::Function(last),
+        len: Value::Function(len),
+    }
 }
 
 pub fn any<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
@@ -95,6 +98,7 @@ mod tests {
     use crate::{
         eval::{evaluate_ast, stdlib},
         parser::Parser,
+        value,
     };
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
@@ -105,18 +109,18 @@ mod tests {
 
     #[test]
     fn evaluates_all_lists() {
-        assert_eq!(evaluate("[true, true].all()"), Ok(Value::Bool(true)));
-        assert_eq!(evaluate("[true, false].all()"), Ok(Value::Bool(false)));
-        assert_eq!(evaluate("[].all()"), Ok(Value::Bool(true)));
+        assert_eq!(evaluate("[true, true].all()"), Ok(value!(true)));
+        assert_eq!(evaluate("[true, false].all()"), Ok(value!(false)));
+        assert_eq!(evaluate("[].all()"), Ok(value!(true)));
     }
 
     #[test]
     fn evaluates_list_equality() {
         assert_eq!(
             evaluate("[1, [true]].equals([1, [true]])"),
-            Ok(Value::Bool(true))
+            Ok(value!(true))
         );
-        assert_eq!(evaluate("[1, 2].equals([1, 3])"), Ok(Value::Bool(false)));
+        assert_eq!(evaluate("[1, 2].equals([1, 3])"), Ok(value!(false)));
         assert_eq!(evaluate("[1].equals(1)"), Err(EvalError::TypeMismatch));
     }
 
@@ -130,12 +134,12 @@ mod tests {
         let Value::Map(document) = value else {
             panic!("expected map")
         };
-        assert_eq!(document.get("any"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("empty"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("non_empty"), Some(&Value::Bool(false)));
-        assert_eq!(document.get("length"), Some(&Value::Int(3)));
-        assert_eq!(document.get("first"), Some(&Value::Int(1)));
-        assert_eq!(document.get("last"), Some(&Value::Int(2)));
+        assert_eq!(document.get("any"), Some(&value!(true)));
+        assert_eq!(document.get("empty"), Some(&value!(true)));
+        assert_eq!(document.get("non_empty"), Some(&value!(false)));
+        assert_eq!(document.get("length"), Some(&value!(3)));
+        assert_eq!(document.get("first"), Some(&value!(1)));
+        assert_eq!(document.get("last"), Some(&value!(2)));
     }
 
     #[test]

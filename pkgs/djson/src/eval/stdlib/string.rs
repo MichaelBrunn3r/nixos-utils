@@ -1,35 +1,38 @@
 #![allow(clippy::missing_errors_doc)]
 
-use crate::eval::{EvalError, Map, Value};
+use crate::{
+    eval::{EvalError, Map, Value},
+    map,
+};
 
 #[must_use]
 pub fn create_map() -> Map<'static> {
-    Map::from([
-        ("len_chars", Value::Function(len_chars)),
-        ("len_bytes", Value::Function(len_bytes)),
-        ("is_empty", Value::Function(is_empty)),
-        ("is_blank", Value::Function(is_blank)),
-        ("is_ascii", Value::Function(is_ascii)),
-        ("contains", Value::Function(contains)),
-        ("starts_with", Value::Function(starts_with)),
-        ("ends_with", Value::Function(ends_with)),
-        ("remove_prefix", Value::Function(remove_prefix)),
-        ("remove_suffix", Value::Function(remove_suffix)),
-        ("count", Value::Function(count)),
-        ("find", Value::Function(find)),
-        ("split", Value::Function(split)),
-        ("lines", Value::Function(lines)),
-        ("trim", Value::Function(trim)),
-        ("trim_start", Value::Function(trim_start)),
-        ("trim_end", Value::Function(trim_end)),
-        ("uppercase", Value::Function(uppercase)),
-        ("lowercase", Value::Function(lowercase)),
-        ("replace", Value::Function(replace)),
-        ("repeat", Value::Function(repeat)),
-        ("pad_start", Value::Function(pad_start)),
-        ("pad_end", Value::Function(pad_end)),
-        ("reverse", Value::Function(reverse)),
-    ])
+    map! {
+        len_chars: Value::Function(len_chars),
+        len_bytes: Value::Function(len_bytes),
+        is_empty: Value::Function(is_empty),
+        is_blank: Value::Function(is_blank),
+        is_ascii: Value::Function(is_ascii),
+        contains: Value::Function(contains),
+        starts_with: Value::Function(starts_with),
+        ends_with: Value::Function(ends_with),
+        remove_prefix: Value::Function(remove_prefix),
+        remove_suffix: Value::Function(remove_suffix),
+        count: Value::Function(count),
+        find: Value::Function(find),
+        split: Value::Function(split),
+        lines: Value::Function(lines),
+        trim: Value::Function(trim),
+        trim_start: Value::Function(trim_start),
+        trim_end: Value::Function(trim_end),
+        uppercase: Value::Function(uppercase),
+        lowercase: Value::Function(lowercase),
+        replace: Value::Function(replace),
+        repeat: Value::Function(repeat),
+        pad_start: Value::Function(pad_start),
+        pad_end: Value::Function(pad_end),
+        reverse: Value::Function(reverse),
+    }
 }
 
 pub fn len_chars<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
@@ -281,6 +284,7 @@ mod tests {
     use crate::{
         eval::{evaluate_ast, stdlib},
         parser::Parser,
+        value,
     };
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
@@ -299,65 +303,34 @@ mod tests {
         let Value::Map(document) = value else {
             panic!("expected map")
         };
-        assert_eq!(document.get("char_length"), Some(&Value::Int(5)));
-        assert_eq!(document.get("byte_length"), Some(&Value::Int(6)));
-        assert_eq!(document.get("empty"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("blank"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("ascii"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("contains"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("starts"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("ends"), Some(&Value::Bool(true)));
-        assert_eq!(
-            document.get("remove_prefix"),
-            Some(&Value::Str("llo".into()))
-        );
-        assert_eq!(
-            document.get("remove_suffix"),
-            Some(&Value::Str("hel".into()))
-        );
-        assert_eq!(document.get("count"), Some(&Value::Int(2)));
-        assert_eq!(document.get("find"), Some(&Value::Int(2)));
-        assert_eq!(
-            document.get("split"),
-            Some(&Value::List(vec![
-                Value::Str("a".into()),
-                Value::Str("b".into()),
-                Value::Str("c".into()),
-            ]))
-        );
-        assert_eq!(
-            document.get("lines"),
-            Some(&Value::List(vec![
-                Value::Str("one".into()),
-                Value::Str("two".into()),
-            ]))
-        );
-        assert_eq!(document.get("trimmed"), Some(&Value::Str("hello".into())));
-        assert_eq!(
-            document.get("trimmed_start"),
-            Some(&Value::Str("hello  ".into()))
-        );
-        assert_eq!(
-            document.get("trimmed_end"),
-            Some(&Value::Str("  hello".into()))
-        );
-        assert_eq!(document.get("lowercase"), Some(&Value::Str("héllo".into())));
-        assert_eq!(document.get("replaced"), Some(&Value::Str("hi hi".into())));
-        assert_eq!(document.get("repeated"), Some(&Value::Str("hahaha".into())));
-        assert_eq!(
-            document.get("padded_start"),
-            Some(&Value::Str("007".into()))
-        );
-        assert_eq!(document.get("padded_end"), Some(&Value::Str("700".into())));
-        assert_eq!(document.get("reversed"), Some(&Value::Str("olléh".into())));
+        assert_eq!(document.get("char_length"), Some(&value!(5)));
+        assert_eq!(document.get("byte_length"), Some(&value!(6)));
+        assert_eq!(document.get("empty"), Some(&value!(true)));
+        assert_eq!(document.get("blank"), Some(&value!(true)));
+        assert_eq!(document.get("ascii"), Some(&value!(true)));
+        assert_eq!(document.get("contains"), Some(&value!(true)));
+        assert_eq!(document.get("starts"), Some(&value!(true)));
+        assert_eq!(document.get("ends"), Some(&value!(true)));
+        assert_eq!(document.get("remove_prefix"), Some(&value!("llo")));
+        assert_eq!(document.get("remove_suffix"), Some(&value!("hel")));
+        assert_eq!(document.get("count"), Some(&value!(2)));
+        assert_eq!(document.get("find"), Some(&value!(2)));
+        assert_eq!(document.get("split"), Some(&value!(["a", "b", "c"])));
+        assert_eq!(document.get("lines"), Some(&value!(["one", "two"])));
+        assert_eq!(document.get("trimmed"), Some(&value!("hello")));
+        assert_eq!(document.get("trimmed_start"), Some(&value!("hello  ")));
+        assert_eq!(document.get("trimmed_end"), Some(&value!("  hello")));
+        assert_eq!(document.get("lowercase"), Some(&value!("héllo")));
+        assert_eq!(document.get("replaced"), Some(&value!("hi hi")));
+        assert_eq!(document.get("repeated"), Some(&value!("hahaha")));
+        assert_eq!(document.get("padded_start"), Some(&value!("007")));
+        assert_eq!(document.get("padded_end"), Some(&value!("700")));
+        assert_eq!(document.get("reversed"), Some(&value!("olléh")));
     }
 
     #[test]
     fn creates_uppercase_strings() {
-        assert_eq!(
-            evaluate("\"héllo\".uppercase()"),
-            Ok(Value::Str("HÉLLO".into()))
-        );
+        assert_eq!(evaluate("\"héllo\".uppercase()"), Ok(value!("HÉLLO")));
     }
 
     #[test]

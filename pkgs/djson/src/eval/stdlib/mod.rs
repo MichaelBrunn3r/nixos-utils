@@ -8,7 +8,10 @@ pub mod string;
 
 use std::rc::Rc;
 
-use crate::eval::{EvalError, Value, scope::Scope};
+use crate::{
+    eval::{EvalError, Value, scope::Scope},
+    map,
+};
 
 /// Constructs the standard lexical prelude.
 ///
@@ -40,22 +43,22 @@ pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eval
 }
 
 fn std_map() -> crate::eval::Map<'static> {
-    crate::eval::Map::from([
-        ("math", Value::Map(math::create_map())),
-        ("types", Value::Map(types_map())),
-    ])
+    map! {
+        math: Value::Map(math::create_map()),
+        types: Value::Map(types_map()),
+    }
 }
 
 fn types_map() -> crate::eval::Map<'static> {
-    crate::eval::Map::from([
-        ("bool", Value::Map(boolean::create_map())),
-        ("float", Value::Map(float::create_map())),
-        ("int", Value::Map(int::create_map())),
-        ("list", Value::Map(list::create_map())),
-        ("map", Value::Map(map::create_map())),
-        ("none", Value::Map(crate::eval::Map::new())),
-        ("str", Value::Map(string::create_map())),
-    ])
+    map! {
+        bool: Value::Map(boolean::create_map()),
+        float: Value::Map(float::create_map()),
+        int: Value::Map(int::create_map()),
+        list: Value::Map(list::create_map()),
+        map: Value::Map(map::create_map()),
+        none: Value::Map(crate::eval::Map::new()),
+        str: Value::Map(string::create_map()),
+    }
 }
 
 pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<Value<'input>> {

@@ -4,7 +4,10 @@
     clippy::missing_errors_doc
 )]
 
-use crate::eval::{EvalError, Map, Value};
+use crate::{
+    eval::{EvalError, Map, Value},
+    map,
+};
 
 pub const PI: Value<'static> = Value::Float(std::f64::consts::PI);
 pub const INFINITY: Value<'static> = Value::Float(f64::INFINITY);
@@ -12,18 +15,18 @@ pub const NAN: Value<'static> = Value::Float(f64::NAN);
 
 #[must_use]
 pub fn create_map() -> Map<'static> {
-    Map::from([
-        ("PI", PI),
-        ("INFINITY", INFINITY),
-        ("NAN", NAN),
-        ("acos", Value::Function(acos)),
-        ("asin", Value::Function(asin)),
-        ("atan", Value::Function(atan)),
-        ("atan2", Value::Function(atan2)),
-        ("sin", Value::Function(sin)),
-        ("cos", Value::Function(cos)),
-        ("tan", Value::Function(tan)),
-    ])
+    map! {
+        PI: PI,
+        INFINITY: INFINITY,
+        NAN: NAN,
+        acos: Value::Function(acos),
+        asin: Value::Function(asin),
+        atan: Value::Function(atan),
+        atan2: Value::Function(atan2),
+        sin: Value::Function(sin),
+        cos: Value::Function(cos),
+        tan: Value::Function(tan),
+    }
 }
 
 pub fn sin<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
@@ -89,6 +92,7 @@ mod tests {
     use crate::{
         eval::{evaluate_ast, stdlib},
         parser::Parser,
+        value,
     };
 
     fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
@@ -107,32 +111,29 @@ mod tests {
         let Value::Map(document) = document else {
             panic!("expected map")
         };
-        assert_eq!(document.get("minimum"), Some(&Value::Int(2)));
-        assert_eq!(document.get("maximum"), Some(&Value::Float(4.0)));
-        assert_eq!(document.get("limited"), Some(&Value::Int(10)));
-        assert_eq!(document.get("limited_float"), Some(&Value::Float(10.0)));
-        assert_eq!(document.get("natural_log"), Some(&Value::Float(0.0)));
-        assert_eq!(document.get("base_two_log"), Some(&Value::Float(3.0)));
-        assert_eq!(document.get("base_ten_log"), Some(&Value::Float(2.0)));
-        assert_eq!(document.get("tangent"), Some(&Value::Float(0.0)));
-        assert_eq!(document.get("arcsine"), Some(&Value::Float(0.0)));
-        assert_eq!(document.get("arccosine"), Some(&Value::Float(0.0)));
-        assert_eq!(document.get("arctangent"), Some(&Value::Float(0.0)));
+        assert_eq!(document.get("minimum"), Some(&value!(2)));
+        assert_eq!(document.get("maximum"), Some(&value!(4.0)));
+        assert_eq!(document.get("limited"), Some(&value!(10)));
+        assert_eq!(document.get("limited_float"), Some(&value!(10.0)));
+        assert_eq!(document.get("natural_log"), Some(&value!(0.0)));
+        assert_eq!(document.get("base_two_log"), Some(&value!(3.0)));
+        assert_eq!(document.get("base_ten_log"), Some(&value!(2.0)));
+        assert_eq!(document.get("tangent"), Some(&value!(0.0)));
+        assert_eq!(document.get("arcsine"), Some(&value!(0.0)));
+        assert_eq!(document.get("arccosine"), Some(&value!(0.0)));
+        assert_eq!(document.get("arctangent"), Some(&value!(0.0)));
         assert_eq!(
             document.get("quadrant"),
-            Some(&Value::Float(std::f64::consts::FRAC_PI_2))
+            Some(&value!(std::f64::consts::FRAC_PI_2))
         );
-        assert_eq!(document.get("finite"), Some(&Value::Bool(true)));
-        assert_eq!(document.get("infinite"), Some(&Value::Bool(false)));
-        assert_eq!(document.get("nan"), Some(&Value::Bool(false)));
+        assert_eq!(document.get("finite"), Some(&value!(true)));
+        assert_eq!(document.get("infinite"), Some(&value!(false)));
+        assert_eq!(document.get("nan"), Some(&value!(false)));
         assert_eq!(
             document.get("pi_value"),
-            Some(&Value::Float(std::f64::consts::PI))
+            Some(&value!(std::f64::consts::PI))
         );
-        assert_eq!(
-            document.get("infinity_value"),
-            Some(&Value::Float(f64::INFINITY))
-        );
+        assert_eq!(document.get("infinity_value"), Some(&value!(f64::INFINITY)));
         assert!(matches!(document.get("nan_value"), Some(Value::Float(value)) if value.is_nan()));
     }
 
