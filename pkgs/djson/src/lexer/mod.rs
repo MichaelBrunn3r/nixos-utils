@@ -2,7 +2,7 @@
 
 use miette::SourceSpan;
 
-use crate::lexer::token::Token;
+use crate::lexer::token::{Spanned, Token};
 pub mod token;
 
 pub struct Lexer<'input> {
@@ -98,7 +98,10 @@ impl<'input> Lexer<'input> {
             if c == delimiter {
                 let end = self.pos;
                 self.eat();
-                return Ok(Token::Str(&self.input[content_start..end]));
+                return Ok(Spanned {
+                    value: Token::Str(&self.input[content_start..end]),
+                    span: (start, self.pos - start + delimiter.len_utf8()).into(),
+                });
             }
             if c == '\\' {
                 self.skip_n("\\n".len());
@@ -150,12 +153,25 @@ impl<'input> Lexer<'input> {
             let value = literal
                 .parse::<f64>()
                 .expect("lexer only accepts valid float literals");
-            Ok(Token::Float(value))
-        } else {
-            literal.parse::<i64>().map(Token::Int).map_err(|error| {
-                debug_assert!(matches!(error.kind(), std::num::IntErrorKind::PosOverflow));
-                Self::err_invalid_number(start, self.pos - start, InvalidNumberReason::IntOverflow)
+            Ok(Spanned {
+                value: Token::Float(value),
+                span: (start, self.pos - start).into(),
             })
+        } else {
+            literal
+                .parse::<i64>()
+                .map(|value| Spanned {
+                    value: Token::Int(value),
+                    span: (start, self.pos - start).into(),
+                })
+                .map_err(|error| {
+                    debug_assert!(matches!(error.kind(), std::num::IntErrorKind::PosOverflow));
+                    Self::err_invalid_number(
+                        start,
+                        self.pos - start,
+                        InvalidNumberReason::IntOverflow,
+                    )
+                })
         }
     }
 
@@ -255,9 +271,13 @@ impl<'input> Iterator for Lexer<'input> {
             Err(error) => return Some(Err(error)),
         };
         if skipped_over_line {
-            return Some(Ok(Token::Sep)); // Emit a separator token if we skipped across lines
+            return Some(Ok(Spanned {
+                value: Token::Sep,
+                span: (self.pos, 0).into(),
+            })); // Emit a separator token if we skipped across lines
         }
 
+        let start = self.pos;
         let c = self.peek()?;
 
         let token = match c {
@@ -292,16 +312,25 @@ impl<'input> Iterator for Lexer<'input> {
             }
             '"' | '\'' => return Some(self.read_string(c)),
             '0'..='9' => return Some(self.read_number()),
-            _ => return Some(Ok(self.read_identifier())),
+            _ => {
+                let value = self.read_identifier();
+                return Some(Ok(Spanned {
+                    value,
+                    span: (start, self.pos - start).into(),
+                }));
+            }
         };
 
         self.eat();
-        Some(Ok(token))
+        Some(Ok(Spanned {
+            value: token,
+            span: (start, self.pos - start).into(),
+        }))
     }
 }
 
 //region LexerResult
-pub type LexerResult<'input> = Result<Token<'input>, LexerError>;
+pub type LexerResult<'input> = Result<Spanned<Token<'input>>, LexerError>;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum LexerError {
@@ -374,7 +403,10 @@ mod tests {
         let cases = cases
             .into_iter()
             .map(|(label, input)| {
-                let tokens: Vec<_> = Lexer::new(input).map(Result::unwrap).collect();
+                let tokens = Lexer::new(input)
+                    .map(Result::unwrap)
+                    .map(|token| token.value)
+                    .collect::<Vec<_>>();
                 fmt_snapshot_case(
                     label,
                     &[("input", input), ("tokens", &format!("{tokens:?}"))],
@@ -388,13 +420,19 @@ mod tests {
 
     #[test]
     fn distinguishes_assignment_and_equality() {
-        let tokens: Vec<_> = Lexer::new("= ==").map(Result::unwrap).collect();
+        let tokens = Lexer::new("= ==")
+            .map(Result::unwrap)
+            .map(|token| token.value)
+            .collect::<Vec<_>>();
         assert_eq!(tokens, vec![super::Token::Eq, super::Token::Equal]);
     }
 
     #[test]
     fn lexes_colon() {
-        let tokens: Vec<_> = Lexer::new(":").map(Result::unwrap).collect();
+        let tokens = Lexer::new(":")
+            .map(Result::unwrap)
+            .map(|token| token.value)
+            .collect::<Vec<_>>();
         assert_eq!(tokens, vec![super::Token::Colon]);
     }
 

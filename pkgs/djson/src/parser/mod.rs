@@ -7,20 +7,29 @@ use std::iter::Peekable;
 use ast::AST;
 
 use crate::{
-    lexer::{Lexer, LexerError, token::Token},
+    lexer::{
+        Lexer, LexerError,
+        token::{Spanned, Token},
+    },
     parser::ast::{BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp},
 };
 
 //region Parser
 pub struct Parser<'input> {
+    input: &'input str,
     tokens: Peekable<Lexer<'input>>,
+    last_span: miette::SourceSpan,
+    last_expression_span: miette::SourceSpan,
 }
 
 impl<'input> Parser<'input> {
     #[must_use]
     pub fn new(input: &'input str) -> Self {
         Self {
+            input,
             tokens: Lexer::new(input).peekable(),
+            last_span: (0, 0).into(),
+            last_expression_span: (0, 0).into(),
         }
     }
 
@@ -37,9 +46,21 @@ impl<'input> Parser<'input> {
     }
 
     fn parse_statement(&mut self) -> ParserResult<Statement<'input>> {
-        if matches!(self.tokens.peek(), Some(Ok(Token::Id("let")))) {
+        if matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::Id("let"),
+                ..
+            }))
+        ) {
             self.next_token()?;
-            if matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
+            if matches!(
+                self.tokens.peek(),
+                Some(Ok(Spanned {
+                    value: Token::Colon,
+                    ..
+                }))
+            ) {
                 self.next_token()?;
                 return Ok(Statement::KV(KV {
                     key: "let",
@@ -50,17 +71,32 @@ impl<'input> Parser<'input> {
         }
         let expression = self.parse_expression(0)?;
 
-        if !matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
+        if !matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::Colon,
+                ..
+            }))
+        ) {
+            if matches!(
+                self.tokens.peek(),
+                Some(Ok(Spanned { value: token, .. })) if !matches!(token, Token::Sep)
+            ) {
+                let token = self.next_token()?;
+                return Err(Self::unexpected(&token, "a separator or ':'"));
+            }
             return Ok(Statement::Expr(expression));
         }
 
         let key = match expression {
             Expr::Id(Identifier::Simple(key)) | Expr::Str(key) => key,
-            expression => {
-                return Err(ParserError::ExpectedKey {
-                    expression: format!("{expression:?}"),
-                });
-            }
+            _ => self
+                .input
+                .get(
+                    self.last_expression_span.offset()
+                        ..self.last_expression_span.offset() + self.last_expression_span.len(),
+                )
+                .expect("expression spans must be valid input boundaries"),
         };
 
         self.next_token()?;
@@ -72,8 +108,11 @@ impl<'input> Parser<'input> {
 
     fn parse_let(&mut self) -> ParserResult<Statement<'input>> {
         let name = match self.next_token()? {
-            Token::Id(value) if value != "let" => value,
-            token => return Err(Self::unexpected(&token, "expected an identifier")),
+            Spanned {
+                value: Token::Id(value),
+                ..
+            } if value != "let" => value,
+            token => return Err(Self::unexpected(&token, "an identifier")),
         };
         self.expect_next_token(&Token::Eq)?;
         Ok(Statement::Let(Let {
@@ -83,11 +122,23 @@ impl<'input> Parser<'input> {
     }
 
     fn parse_expression(&mut self, min_binding_power: u8) -> ParserResult<Expr<'input>> {
+        let start = self
+            .tokens
+            .peek()
+            .and_then(|result| result.as_ref().ok())
+            .map_or(self.last_span, |token| token.span);
+        let expression = self.parse_expression_inner(min_binding_power)?;
+        let end = self.last_span.offset() + self.last_span.len();
+        self.last_expression_span = (start.offset(), end.saturating_sub(start.offset())).into();
+        Ok(expression)
+    }
+
+    fn parse_expression_inner(&mut self, min_binding_power: u8) -> ParserResult<Expr<'input>> {
         let mut left = self.parse_prefix()?;
 
         while let Some(Ok(token)) = self.tokens.peek() {
             let Some((left_binding_power, right_binding_power, operator)) =
-                Self::infix_binding_power(token)
+                Self::infix_binding_power(&token.value)
             else {
                 break;
             };
@@ -113,8 +164,9 @@ impl<'input> Parser<'input> {
         self.parse_prefix_token(token)
     }
 
-    fn parse_prefix_token(&mut self, token: Token<'input>) -> ParserResult<Expr<'input>> {
-        match token {
+    fn parse_prefix_token(&mut self, token: Spanned<Token<'input>>) -> ParserResult<Expr<'input>> {
+        let Spanned { value, .. } = token;
+        match value {
             Token::Bool(value) => self.parse_postfix(Expr::Bool(value)),
             Token::Int(value) => self.parse_postfix(Expr::Int(value)),
             Token::Float(value) => self.parse_postfix(Expr::Float(value)),
@@ -129,7 +181,13 @@ impl<'input> Parser<'input> {
             }
             Token::Add => self.parse_unary(UnaryOp::Positive),
             Token::Sub => self.parse_unary(UnaryOp::Negative),
-            token => Err(Self::unexpected(&token, "expected an expression")),
+            token => Err(Self::unexpected(
+                &Spanned {
+                    value: token,
+                    span: self.last_span,
+                },
+                "expression",
+            )),
         }
     }
 
@@ -144,12 +202,17 @@ impl<'input> Parser<'input> {
     fn parse_postfix(&mut self, mut expression: Expr<'input>) -> ParserResult<Expr<'input>> {
         loop {
             expression = match self.tokens.peek() {
-                Some(Ok(Token::Dot)) => {
+                Some(Ok(Spanned {
+                    value: Token::Dot, ..
+                })) => {
                     self.next_token()?;
                     let name = match self.next_token()? {
-                        Token::Id(value) => value,
+                        Spanned {
+                            value: Token::Id(value),
+                            ..
+                        } => value,
                         token => {
-                            return Err(Self::unexpected(&token, "expected an identifier"));
+                            return Err(Self::unexpected(&token, "an identifier"));
                         }
                     };
                     Expr::Access {
@@ -157,7 +220,10 @@ impl<'input> Parser<'input> {
                         name,
                     }
                 }
-                Some(Ok(Token::LParen)) => self.parse_call(expression)?,
+                Some(Ok(Spanned {
+                    value: Token::LParen,
+                    ..
+                })) => self.parse_call(expression)?,
                 _ => return Ok(expression),
             };
         }
@@ -168,18 +234,36 @@ impl<'input> Parser<'input> {
         let mut arguments = Vec::new();
         self.skip_separators()?;
 
-        if !matches!(self.tokens.peek(), Some(Ok(Token::RParen))) {
+        if !matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::RParen,
+                ..
+            }))
+        ) {
             loop {
                 arguments.push(self.parse_expression(0)?);
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RParen))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RParen,
+                        ..
+                    }))
+                ) {
                     break;
                 }
 
                 self.expect_next_token(&Token::Sep)?;
                 self.skip_separators()?;
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RParen))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RParen,
+                        ..
+                    }))
+                ) {
                     break;
                 }
             }
@@ -196,18 +280,36 @@ impl<'input> Parser<'input> {
         let mut values = Vec::new();
         self.skip_separators()?;
 
-        if !matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+        if !matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::RBracket,
+                ..
+            }))
+        ) {
             loop {
                 values.push(self.parse_expression(0)?);
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RBracket,
+                        ..
+                    }))
+                ) {
                     break;
                 }
 
                 self.expect_next_token(&Token::Sep)?;
                 self.skip_separators()?;
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RBracket))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RBracket,
+                        ..
+                    }))
+                ) {
                     break;
                 }
             }
@@ -221,24 +323,45 @@ impl<'input> Parser<'input> {
         let mut entries = Vec::new();
         self.skip_separators()?;
 
-        if !matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+        if !matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::RBrace,
+                ..
+            }))
+        ) {
             loop {
                 let key = match self.next_token()? {
-                    Token::Id(value) | Token::Str(value) => value,
-                    token => return Err(Self::unexpected(&token, "expected a map key")),
+                    Spanned {
+                        value: Token::Id(value) | Token::Str(value),
+                        ..
+                    } => value,
+                    token => return Err(Self::unexpected(&token, "a map key")),
                 };
                 self.expect_next_token(&Token::Colon)?;
                 let expr = self.parse_expression(0)?;
                 entries.push(KV { key, expr });
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RBrace,
+                        ..
+                    }))
+                ) {
                     break;
                 }
 
                 self.expect_next_token(&Token::Sep)?;
                 self.skip_separators()?;
 
-                if matches!(self.tokens.peek(), Some(Ok(Token::RBrace))) {
+                if matches!(
+                    self.tokens.peek(),
+                    Some(Ok(Spanned {
+                        value: Token::RBrace,
+                        ..
+                    }))
+                ) {
                     break;
                 }
             }
@@ -261,7 +384,13 @@ impl<'input> Parser<'input> {
     }
 
     fn skip_separators(&mut self) -> ParserResult<()> {
-        while matches!(self.tokens.peek(), Some(Ok(Token::Sep))) {
+        while matches!(
+            self.tokens.peek(),
+            Some(Ok(Spanned {
+                value: Token::Sep,
+                ..
+            }))
+        ) {
             self.next_token()?;
         }
         Ok(())
@@ -269,25 +398,31 @@ impl<'input> Parser<'input> {
 
     fn expect_next_token(&mut self, expected: &Token<'input>) -> ParserResult<()> {
         let token = self.next_token()?;
-        if token == *expected {
+        if token.value == *expected {
             Ok(())
         } else {
-            Err(Self::unexpected(&token, "unexpected token"))
+            Err(Self::unexpected(&token, &format!("{expected:?}")))
         }
     }
 
-    fn next_token(&mut self) -> ParserResult<Token<'input>> {
-        self.tokens
+    fn next_token(&mut self) -> ParserResult<Spanned<Token<'input>>> {
+        let token = self
+            .tokens
             .next()
             .transpose()
             .map_err(ParserError::from)?
-            .ok_or(ParserError::UnexpectedEof)
+            .ok_or(ParserError::UnexpectedEof {
+                span: self.last_span,
+            })?;
+        self.last_span = token.span;
+        Ok(token)
     }
 
-    fn unexpected(token: &Token<'input>, expected: &str) -> ParserError {
+    fn unexpected(token: &Spanned<Token<'input>>, expected: &str) -> ParserError {
         ParserError::UnexpectedToken {
             expected: expected.to_owned(),
-            found: format!("{token:?}"),
+            found: format!("{:?}", token.value),
+            span: token.span,
         }
     }
 }
@@ -305,26 +440,31 @@ pub enum ParserError {
 
     #[error("unexpected end of input")]
     #[diagnostic(code(parser::unexpected_eof))]
-    UnexpectedEof,
+    UnexpectedEof {
+        #[label("input ends here")]
+        span: miette::SourceSpan,
+    },
 
-    #[error("expected {expected}, found {found}")]
+    #[error("unexpected token")]
     #[diagnostic(code(parser::unexpected_token))]
-    UnexpectedToken { expected: String, found: String },
-
-    #[error("expected a key, found {expression}")]
-    #[diagnostic(code(parser::expected_key))]
-    ExpectedKey { expression: String },
+    UnexpectedToken {
+        expected: String,
+        found: String,
+        #[label("expected {expected}, got {found} instead")]
+        span: miette::SourceSpan,
+    },
 }
 //endregion ParserResult
 
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
+    use miette::{GraphicalReportHandler, GraphicalTheme, NamedSource, Report};
 
     use super::Parser;
     use crate::{
         parser::ast::{Expr, Identifier, KV, Let, Statement},
-        test_utils::dedent,
+        test_utils::{dedent, fmt_snapshot_case},
     };
 
     #[test]
@@ -431,5 +571,71 @@ mod tests {
                 expr: Expr::Id(Identifier::Simple("value")),
             })]
         );
+    }
+
+    #[test]
+    fn allows_expression_shaped_top_level_keys() {
+        let ast = Parser::new("not_a_string(): 2")
+            .parse()
+            .expect("valid top-level key");
+        assert!(matches!(
+            &ast.statements[0],
+            Statement::KV(KV {
+                key: "not_a_string()",
+                expr: Expr::Int(2),
+            })
+        ));
+    }
+
+    #[test]
+    fn rejects_adjacent_top_level_tokens() {
+        let error = Parser::new("key key")
+            .parse()
+            .expect_err("adjacent top-level tokens should be rejected");
+        assert!(matches!(error, super::ParserError::UnexpectedToken { .. }));
+    }
+
+    #[test]
+    fn diagnostics() {
+        let cases = [
+            (
+                "lexer error",
+                "{
+                    value: 9223372036854775808
+                }",
+            ),
+            (
+                "unexpected end of input",
+                "before: 1
+                 value:",
+            ),
+            (
+                "unexpected token",
+                "before: 1
+                  value: )
+                 after: 3",
+            ),
+        ];
+
+        let handler = GraphicalReportHandler::new_themed(GraphicalTheme::none());
+        let cases = cases
+            .into_iter()
+            .map(|(label, input)| {
+                let input = &dedent(input);
+                let error = Parser::new(input)
+                    .parse()
+                    .expect_err("expected a parser error");
+                let report = Report::new(error)
+                    .with_source_code(NamedSource::new("input.dj", input.to_owned()));
+                let mut rendered = String::new();
+                handler
+                    .render_report(&mut rendered, report.as_ref())
+                    .expect("rendering a parser error should succeed");
+                fmt_snapshot_case(label, &[("error", &rendered)])
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        assert_snapshot!(cases);
     }
 }

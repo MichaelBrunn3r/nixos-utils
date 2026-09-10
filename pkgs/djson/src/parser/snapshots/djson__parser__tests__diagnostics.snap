@@ -1,0 +1,38 @@
+---
+source: pkgs/djson/src/parser/mod.rs
+expression: cases
+---
+lexer error
+error: `lexer::invalid_number
+        
+          x invalid number
+           ,-[input.dj:2:12]
+         1 | {
+         2 |     value: 9223372036854775808
+           :            ^^^^^^^^^|^^^^^^^^^
+           :                     `-- integer: too large
+         3 | }
+           `----`
+
+unexpected end of input
+error: `parser::unexpected_eof
+        
+          x unexpected end of input
+           ,-[input.dj:2:6]
+         1 | before: 1
+         2 | value:
+           :      |
+           :      `-- input ends here
+           `----`
+
+unexpected token
+error: `parser::unexpected_token
+        
+          x unexpected token
+           ,-[input.dj:2:9]
+         1 | before: 1
+         2 |  value: )
+           :         |
+           :         `-- expected expression, got RParen instead
+         3 | after: 3
+           `----`
