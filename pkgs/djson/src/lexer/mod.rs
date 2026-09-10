@@ -1,7 +1,5 @@
 #![allow(clippy::cast_precision_loss)]
 
-use std::num::IntErrorKind;
-
 use miette::SourceSpan;
 
 use crate::lexer::token::Token;
@@ -127,21 +125,14 @@ impl<'input> Lexer<'input> {
                 '0'..='9' => {
                     self.eat();
                 }
-                '.' if self.input[self.pos..]
-                    .chars()
-                    .nth(1)
-                    .is_some_and(|character| {
-                        character.is_ascii_digit() || matches!(character, '_' | '\'')
-                    }) =>
+                '.' if !has_decimals
+                    && self.input[self.pos..]
+                        .chars()
+                        .nth(1)
+                        .is_some_and(|character| {
+                            character.is_ascii_digit() || matches!(character, '_' | '\'')
+                        }) =>
                 {
-                    if has_decimals {
-                        return Err(Self::err_invalid_number(
-                            start,
-                            self.pos - start,
-                            InvalidNumberReason::MultipleDecimalPoints,
-                        ));
-                    }
-
                     has_decimals = true;
                     self.eat();
                 }
@@ -156,16 +147,14 @@ impl<'input> Lexer<'input> {
         };
 
         if has_decimals {
-            literal.parse::<f64>().map(Token::Float).map_err(|_| {
-                Self::err_invalid_number(start, self.pos - start, InvalidNumberReason::ParseFloat)
-            })
+            let value = literal
+                .parse::<f64>()
+                .expect("lexer only accepts valid float literals");
+            Ok(Token::Float(value))
         } else {
             literal.parse::<i64>().map(Token::Int).map_err(|error| {
-                Self::err_invalid_number(
-                    start,
-                    self.pos - start,
-                    InvalidNumberReason::ParseInt(*error.kind()),
-                )
+                debug_assert!(matches!(error.kind(), std::num::IntErrorKind::PosOverflow));
+                Self::err_invalid_number(start, self.pos - start, InvalidNumberReason::IntOverflow)
             })
         }
     }
@@ -184,15 +173,7 @@ impl<'input> Lexer<'input> {
                     self.buffer.push(character);
                     self.eat();
                 }
-                '.' => {
-                    if has_decimals {
-                        return Err(Self::err_invalid_number(
-                            start,
-                            self.pos - start,
-                            InvalidNumberReason::MultipleDecimalPoints,
-                        ));
-                    }
-
+                '.' if !has_decimals => {
                     has_decimals = true;
                     self.buffer.push(character);
                     self.eat();
@@ -349,27 +330,11 @@ pub enum LexerError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidNumberReason {
-    #[error("integer: {}", int_error_reason(*.0))]
-    ParseInt(IntErrorKind),
-
-    #[error("float")]
-    ParseFloat,
-
-    #[error("multiple decimal points")]
-    MultipleDecimalPoints,
+    #[error("integer: too large")]
+    IntOverflow,
 
     #[error("invalid separator")]
     InvalidSeparator,
-}
-
-const fn int_error_reason(kind: IntErrorKind) -> &'static str {
-    match kind {
-        IntErrorKind::Empty => "empty",
-        IntErrorKind::InvalidDigit => "invalid digit",
-        IntErrorKind::PosOverflow => "too large",
-        IntErrorKind::NegOverflow => "too small",
-        _ => "unknown",
-    }
 }
 //endregion LexerResult
 
