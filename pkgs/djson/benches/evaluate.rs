@@ -1,8 +1,8 @@
-use std::hint::black_box;
+use std::{hint::black_box, rc::Rc};
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use djson::{
-    eval::{evaluate_ast, stdlib},
+    eval::{Scope, evaluate_ast, stdlib},
     parser::Parser,
 };
 
@@ -12,7 +12,10 @@ fn evaluate(c: &mut Criterion) {
     let root = stdlib::new();
 
     c.bench_function("evaluate", |benchmark| {
-        benchmark.iter(|| black_box(evaluate_ast(&ast, &root)));
+        benchmark.iter(|| {
+            let mut scope = Scope::child(Rc::clone(&root));
+            black_box(evaluate_ast(&ast, &mut scope))
+        });
     });
 }
 

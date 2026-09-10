@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[must_use]
-pub fn create_map() -> Map<'static> {
+pub fn create_map() -> Map {
     map! {
         len_chars: Value::Function(len_chars),
         len_bytes: Value::Function(len_bytes),
@@ -35,7 +35,7 @@ pub fn create_map() -> Map<'static> {
     }
 }
 
-pub fn len_chars<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn len_chars(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => {
             let length = i64::try_from(value.chars().count()).map_err(|_| EvalError::Overflow)?;
@@ -45,7 +45,7 @@ pub fn len_chars<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, E
     }
 }
 
-pub fn len_bytes<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn len_bytes(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => {
             let Ok(length) = i64::try_from(value.len()) else {
@@ -57,85 +57,83 @@ pub fn len_bytes<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, E
     }
 }
 
-pub fn is_empty<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn is_empty(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => Ok(Value::Bool(value.is_empty())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn is_blank<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn is_blank(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => Ok(Value::Bool(value.trim().is_empty())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn is_ascii<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn is_ascii(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => Ok(Value::Bool(value.is_ascii())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn contains<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn contains(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value), Value::Str(needle)] => Ok(Value::Bool(value.contains(needle.as_ref()))),
+        [Value::Str(value), Value::Str(needle)] => Ok(Value::Bool(value.contains(needle.as_str()))),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn starts_with<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn starts_with(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(prefix)] => {
-            Ok(Value::Bool(value.starts_with(prefix.as_ref())))
+            Ok(Value::Bool(value.starts_with(prefix.as_str())))
         }
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn ends_with<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn ends_with(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(suffix)] => {
-            Ok(Value::Bool(value.ends_with(suffix.as_ref())))
+            Ok(Value::Bool(value.ends_with(suffix.as_str())))
         }
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn remove_prefix<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn remove_prefix(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(prefix)] => Ok(Value::Str(
             value
-                .strip_prefix(prefix.as_ref())
+                .strip_prefix(prefix.as_str())
                 .unwrap_or(value)
-                .to_owned()
-                .into(),
+                .to_owned(),
         )),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn remove_suffix<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn remove_suffix(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(suffix)] => Ok(Value::Str(
             value
-                .strip_suffix(suffix.as_ref())
+                .strip_suffix(suffix.as_str())
                 .unwrap_or(value)
-                .to_owned()
-                .into(),
+                .to_owned(),
         )),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn count<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn count(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(needle)] => {
             let count = if needle.is_empty() {
                 0
             } else {
-                value.matches(needle.as_ref()).count()
+                value.matches(needle.as_str()).count()
             };
             let count = i64::try_from(count).map_err(|_| EvalError::Overflow)?;
             Ok(Value::Int(count))
@@ -144,11 +142,11 @@ pub fn count<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
     }
 }
 
-pub fn find<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn find(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(needle)] => {
             let index = value
-                .find(needle.as_ref())
+                .find(needle.as_str())
                 .map(|index| value[..index].chars().count())
                 .map(i64::try_from)
                 .transpose()
@@ -160,86 +158,86 @@ pub fn find<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalEr
     }
 }
 
-pub fn split<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn split(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(delimiter)] => Ok(Value::List(
             value
-                .split(delimiter.as_ref())
-                .map(|part| Value::Str(part.to_owned().into()))
+                .split(delimiter.as_str())
+                .map(|part| Value::Str(part.to_owned()))
                 .collect(),
         )),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn lines<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn lines(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value)] => Ok(Value::List(
             value
                 .lines()
-                .map(|line| Value::Str(line.to_owned().into()))
+                .map(|line| Value::Str(line.to_owned()))
                 .collect(),
         )),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn uppercase<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn uppercase(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.to_uppercase().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.to_uppercase())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn trim<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn trim(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.trim().to_owned().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.trim().to_owned())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn trim_start<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn trim_start(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.trim_start().to_owned().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.trim_start().to_owned())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn trim_end<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn trim_end(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.trim_end().to_owned().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.trim_end().to_owned())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn lowercase<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn lowercase(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.to_lowercase().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.to_lowercase())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn replace<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn replace(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Str(from), Value::Str(to)] => {
-            Ok(Value::Str(value.replace(from.as_ref(), to.as_ref()).into()))
+            Ok(Value::Str(value.replace(from.as_str(), to.as_str())))
         }
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn repeat<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn repeat(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Str(value), Value::Int(count)] if *count >= 0 => {
             let count = usize::try_from(*count).map_err(|_| EvalError::Overflow)?;
             value.len().checked_mul(count).ok_or(EvalError::Overflow)?;
-            Ok(Value::Str(value.repeat(count).into()))
+            Ok(Value::Str(value.repeat(count)))
         }
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn pad_start<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn pad_start(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Str(value), Value::Int(width), Value::Str(padding)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
@@ -252,10 +250,10 @@ pub fn pad_start<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, E
     let missing = width.saturating_sub(length);
     let mut result = padding.chars().cycle().take(missing).collect::<String>();
     result.push_str(value);
-    Ok(Value::Str(result.into()))
+    Ok(Value::Str(result))
 }
 
-pub fn pad_end<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn pad_end(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Str(value), Value::Int(width), Value::Str(padding)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
@@ -266,14 +264,14 @@ pub fn pad_end<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eva
     let width = usize::try_from(*width).map_err(|_| EvalError::Overflow)?;
     let length = value.chars().count();
     let missing = width.saturating_sub(length);
-    let mut result = value.to_string();
+    let mut result = value.clone();
     result.extend(padding.chars().cycle().take(missing));
-    Ok(Value::Str(result.into()))
+    Ok(Value::Str(result))
 }
 
-pub fn reverse<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn reverse(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
-        [Value::Str(value)] => Ok(Value::Str(value.chars().rev().collect::<String>().into())),
+        [Value::Str(value)] => Ok(Value::Str(value.chars().rev().collect::<String>())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
@@ -282,15 +280,15 @@ pub fn reverse<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eva
 mod tests {
     use super::*;
     use crate::{
-        eval::{evaluate_ast, stdlib},
+        eval::{Scope, evaluate_ast, stdlib},
         parser::Parser,
         value,
     };
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
     #[test]

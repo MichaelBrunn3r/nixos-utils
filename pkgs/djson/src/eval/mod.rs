@@ -9,24 +9,26 @@ pub mod scope;
 pub mod stdlib;
 
 pub use document::{Document, Value};
+pub use scope::Scope;
 
 use crate::{
-    eval::{document::map::Map, scope::Scope},
+    eval::document::map::Map,
     parser::ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
 };
 
-pub fn evaluate_ast<'input>(
-    ast: &AST<'input>,
-    root: &std::rc::Rc<Scope<'static>>,
-) -> Result<Value<'input>, EvalError> {
-    let mut scope = Scope::child(std::rc::Rc::clone(root));
+/// Evaluates a parsed document into `scope`.
+///
+/// Bindings declared by `let` statements are written directly into `scope`.
+/// Callers that need an isolated evaluation environment, such as normal file
+/// evaluation, should pass a child scope created from the standard prelude.
+pub fn evaluate_ast(ast: &AST<'_>, scope: &mut Scope) -> Result<Value, EvalError> {
     let mut document = Document::new();
     let mut expression = None;
 
     for statement in &ast.statements {
         let value = match statement {
             Statement::Let(binding) => {
-                let value = evaluate_expr(&binding.expr, &scope)?;
+                let value = evaluate_expr(&binding.expr, scope)?;
                 scope.bind_value(binding.name, value)?;
                 continue;
             }
@@ -37,14 +39,14 @@ pub fn evaluate_ast<'input>(
                 if expression.is_some() {
                     return Err(EvalError::MultipleExpressions);
                 }
-                expression = Some(evaluate_expr(node, &scope)?);
+                expression = Some(evaluate_expr(node, scope)?);
                 continue;
             }
             Statement::KV(pair) => {
                 if expression.is_some() {
                     return Err(EvalError::MixedDocumentForms);
                 }
-                evaluate_expr(&pair.expr, &scope)?
+                evaluate_expr(&pair.expr, scope)?
             }
         };
 
@@ -58,15 +60,12 @@ pub fn evaluate_ast<'input>(
     Ok(expression.unwrap_or(Value::Map(document)))
 }
 
-fn evaluate_expr<'input>(
-    node: &Expr<'input>,
-    scope: &Scope<'input>,
-) -> Result<Value<'input>, EvalError> {
+fn evaluate_expr(node: &Expr<'_>, scope: &Scope) -> Result<Value, EvalError> {
     match node {
         Expr::Bool(value) => Ok(Value::Bool(*value)),
         Expr::Int(value) => Ok(Value::Int(*value)),
         Expr::Float(value) => Ok(Value::Float(*value)),
-        Expr::Str(value) => Ok(Value::Str(decode_string(value).into())),
+        Expr::Str(value) => Ok(Value::Str(decode_string(value))),
         Expr::Id(Identifier::Simple("none" | "null" | "nil")) => Ok(Value::None),
         Expr::List(values) => values
             .iter()
@@ -128,19 +127,12 @@ fn decode_string(value: &str) -> String {
     decoded
 }
 
-fn evaluate_access<'input>(
-    object: &Expr<'input>,
-    name: &str,
-    scope: &Scope<'input>,
-) -> Result<Value<'input>, EvalError> {
-    let object = evaluate_expr(object, scope)?;
+fn evaluate_access(node: &Expr<'_>, name: &str, scope: &Scope) -> Result<Value, EvalError> {
+    let object = evaluate_expr(node, scope)?;
     resolve_member(&object, name).map(|(value, _)| value)
 }
 
-fn resolve_member<'input>(
-    object: &Value<'input>,
-    name: &str,
-) -> Result<(Value<'input>, bool), EvalError> {
+fn resolve_member(object: &Value, name: &str) -> Result<(Value, bool), EvalError> {
     match object {
         Value::Map(map) => map
             .get(name)
@@ -154,11 +146,11 @@ fn resolve_member<'input>(
     }
 }
 
-fn evaluate_call<'input>(
-    callee: &Expr<'input>,
-    arguments: &[Expr<'input>],
-    scope: &Scope<'input>,
-) -> Result<Value<'input>, EvalError> {
+fn evaluate_call(
+    callee: &Expr<'_>,
+    arguments: &[Expr<'_>],
+    scope: &Scope,
+) -> Result<Value, EvalError> {
     let mut receiver = None;
     let callee = match callee {
         Expr::Access { object, name } => {
@@ -195,10 +187,7 @@ fn evaluate_call<'input>(
     function(&arguments)
 }
 
-fn evaluate_unary<'input>(
-    operator: &UnaryOp,
-    value: Value<'input>,
-) -> Result<Value<'input>, EvalError> {
+fn evaluate_unary(operator: &UnaryOp, value: Value) -> Result<Value, EvalError> {
     match (operator, value) {
         (UnaryOp::Positive, value @ (Value::Int(_) | Value::Float(_))) => Ok(value),
         (UnaryOp::Negative, Value::Int(value)) => value
@@ -210,11 +199,7 @@ fn evaluate_unary<'input>(
     }
 }
 
-fn evaluate_binary<'input>(
-    op: &BinaryOp,
-    left: Value<'input>,
-    right: Value<'input>,
-) -> Result<Value<'input>, EvalError> {
+fn evaluate_binary(op: &BinaryOp, left: Value, right: Value) -> Result<Value, EvalError> {
     match (op, left, right) {
         (BinaryOp::Add, Value::Int(left), Value::Int(right)) => left
             .checked_add(right)
@@ -288,13 +273,13 @@ mod tests {
     use super::*;
     use crate::{map, parser::Parser, value};
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
-    fn expect_document(label: &str, input: &str, expected: &[(&str, Value<'_>)]) {
+    fn expect_document(label: &str, input: &str, expected: &[(&str, Value)]) {
         let value = evaluate(input)
             .unwrap_or_else(|error| panic!("{label}: expected valid document, got {error:?}"));
         let Value::Map(document) = value else {
@@ -535,16 +520,16 @@ pub mod test_utils {
     use super::*;
 
     #[allow(clippy::missing_panics_doc)]
-    pub fn assert_entries(document: &Document<'_>, expected: &[(&str, Value<'_>)]) {
+    pub fn assert_entries(document: &Document, expected: &[(&str, Value)]) {
         for (key, value) in expected {
             assert_eq!(value_at_path(document, key), Some(value));
         }
     }
 
-    fn value_at_path<'document, 'input>(
-        document: &'document Document<'input>,
+    fn value_at_path<'document>(
+        document: &'document Document,
         path: &str,
-    ) -> Option<&'document Value<'input>> {
+    ) -> Option<&'document Value> {
         let mut value = None;
 
         for (index, segment) in path.split('.').enumerate() {

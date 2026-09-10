@@ -2,7 +2,7 @@ use std::{fs, io, io::Read, path::PathBuf};
 
 use clap::Parser as ClapParser;
 use djson::{
-    eval::{evaluate_ast, stdlib},
+    eval::{Scope, evaluate_ast, stdlib},
     parser::Parser,
 };
 use miette::{NamedSource, Report, miette};
@@ -32,8 +32,8 @@ pub fn run() -> Result<(), Report> {
     let ast = Parser::new(&input)
         .parse()
         .map_err(|error| Report::new(error).with_source_code(source.clone()))?;
-    let scope = stdlib::prelude();
-    let value = evaluate_ast(&ast, &scope)
+    let mut scope = Scope::child(stdlib::prelude());
+    let value = evaluate_ast(&ast, &mut scope)
         .map_err(|error| miette!("failed to evaluate document: {error:?}"))?;
 
     println!("{value:#?}");

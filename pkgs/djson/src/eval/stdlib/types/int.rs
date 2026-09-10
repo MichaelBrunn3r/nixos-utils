@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[must_use]
-pub fn create_map() -> Map<'static> {
+pub fn create_map() -> Map {
     map! {
         abs: Value::Function(abs),
         clamp: Value::Function(clamp),
@@ -20,7 +20,7 @@ pub fn create_map() -> Map<'static> {
     }
 }
 
-pub fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn abs(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => value
             .checked_abs()
@@ -30,7 +30,7 @@ pub fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
     }
 }
 
-pub fn clamp<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn clamp(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value), Value::Int(minimum), Value::Int(maximum)] if minimum <= maximum => {
             Ok(Value::Int((*value).clamp(*minimum, *maximum)))
@@ -39,21 +39,21 @@ pub fn clamp<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
     }
 }
 
-pub fn sqrt<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn sqrt(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => Ok(Value::Float((*value as f64).sqrt())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn ln<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn ln(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => Ok(Value::Float((*value as f64).ln())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn log<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value), Value::Int(base)] => {
             Ok(Value::Float((*value as f64).log(*base as f64)))
@@ -63,28 +63,28 @@ pub fn log<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
     }
 }
 
-pub fn log2<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log2(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => Ok(Value::Float((*value as f64).log2())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn log10<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log10(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => Ok(Value::Float((*value as f64).log10())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn max<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn max(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(left), Value::Int(right)] => Ok(Value::Int((*left).max(*right))),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn min<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn min(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(left), Value::Int(right)] => Ok(Value::Int((*left).min(*right))),
         _ => Err(EvalError::TypeMismatch),
@@ -94,15 +94,15 @@ pub fn min<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
 #[cfg(test)]
 mod tests {
     use crate::{
-        eval::{EvalError, Value, evaluate_ast, stdlib},
+        eval::{EvalError, Scope, Value, evaluate_ast, stdlib},
         parser::Parser,
         value,
     };
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
     #[test]

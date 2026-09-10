@@ -1,8 +1,8 @@
-use std::hint::black_box;
+use std::{hint::black_box, rc::Rc};
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use djson::{
-    eval::{evaluate_ast, stdlib},
+    eval::{Scope, evaluate_ast, stdlib},
     parser::Parser,
 };
 
@@ -13,7 +13,8 @@ fn pipeline(c: &mut Criterion) {
     c.bench_function("parse_and_evaluate", |benchmark| {
         benchmark.iter(|| {
             let ast = Parser::new(input).parse().expect("valid input");
-            black_box(evaluate_ast(&ast, &root))
+            let mut scope = Scope::child(Rc::clone(&root));
+            black_box(evaluate_ast(&ast, &mut scope))
         });
     });
 }

@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[must_use]
-pub fn create_map() -> Map<'static> {
+pub fn create_map() -> Map {
     map! {
         abs: Value::Function(abs),
         ceil: Value::Function(ceil),
@@ -30,14 +30,14 @@ pub fn create_map() -> Map<'static> {
     }
 }
 
-pub const fn abs<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn abs(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Float(value.abs())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn clamp<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn clamp(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [
             Value::Float(value),
@@ -48,7 +48,7 @@ pub fn clamp<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
     }
 }
 
-pub fn ceil<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn ceil(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => {
             let value = value.ceil();
@@ -61,7 +61,7 @@ pub fn ceil<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalEr
     }
 }
 
-pub fn floor<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn floor(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => {
             let value = value.floor();
@@ -74,7 +74,7 @@ pub fn floor<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
     }
 }
 
-pub fn round<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn round(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => {
             let value = value.round();
@@ -87,21 +87,21 @@ pub fn round<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalE
     }
 }
 
-pub fn sqrt<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn sqrt(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Float(value.sqrt())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn ln<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn ln(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Float(value.ln())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn log<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value), Value::Int(base)] => Ok(Value::Float(value.log(*base as f64))),
         [Value::Float(value), Value::Float(base)] => Ok(Value::Float(value.log(*base))),
@@ -109,49 +109,49 @@ pub fn log<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
     }
 }
 
-pub fn log2<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log2(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Float(value.log2())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn log10<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn log10(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Float(value.log10())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub const fn max<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn max(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(left), Value::Float(right)] => Ok(Value::Float(left.max(*right))),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub const fn min<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn min(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(left), Value::Float(right)] => Ok(Value::Float(left.min(*right))),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub const fn is_finite<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn is_finite(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Bool(value.is_finite())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub const fn is_infinite<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn is_infinite(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Bool(value.is_infinite())),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub const fn is_nan<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub const fn is_nan(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Float(value)] => Ok(Value::Bool(value.is_nan())),
         _ => Err(EvalError::TypeMismatch),
@@ -161,15 +161,15 @@ pub const fn is_nan<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>
 #[cfg(test)]
 mod tests {
     use crate::{
-        eval::{EvalError, Value, evaluate_ast, stdlib},
+        eval::{EvalError, Scope, Value, evaluate_ast, stdlib},
         parser::Parser,
         value,
     };
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
     #[test]

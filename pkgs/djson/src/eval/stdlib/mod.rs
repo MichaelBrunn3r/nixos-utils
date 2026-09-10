@@ -4,11 +4,11 @@ pub mod types;
 use std::rc::Rc;
 
 use crate::{
-    eval::{EvalError, Value, scope::Scope},
+    eval::{EvalError, Map, Scope, Value},
     map,
 };
 
-fn create_module() -> crate::eval::Map<'static> {
+fn create_module() -> Map {
     map! {
         math: Value::Map(math::create_map()),
         types: Value::Map(types::create_module()),
@@ -20,12 +20,12 @@ fn create_module() -> crate::eval::Map<'static> {
 /// The prelude is installed as the root scope for normal evaluation and
 /// always provides `import` for expression-based module loading.
 #[must_use]
-pub fn prelude() -> Rc<Scope<'static>> {
+pub fn prelude() -> Rc<Scope> {
     Rc::new(Scope::from_values([("import", Value::Function(import))]))
 }
 
 #[must_use]
-pub fn new() -> Rc<Scope<'static>> {
+pub fn new() -> Rc<Scope> {
     prelude()
 }
 
@@ -35,19 +35,19 @@ pub fn new() -> Rc<Scope<'static>> {
 ///
 /// Returns [`EvalError::UnknownModule`] for an unknown module name and
 /// [`EvalError::TypeMismatch`] when the argument is not a string.
-pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn import(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Str(name)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
 
-    match name.as_ref() {
+    match name.as_str() {
         "std" => Ok(Value::Map(create_module())),
         "types" => Ok(Value::Map(types::create_module())),
-        _ => Err(EvalError::UnknownModule(name.to_string())),
+        _ => Err(EvalError::UnknownModule(name.to_owned())),
     }
 }
 
-pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<Value<'input>> {
+pub(crate) fn type_member(value: &Value, name: &str) -> Option<Value> {
     let type_name = match value {
         Value::None => "none",
         Value::Bool(_) => "bool",

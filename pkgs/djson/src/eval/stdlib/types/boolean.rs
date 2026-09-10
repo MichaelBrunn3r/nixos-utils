@@ -1,6 +1,6 @@
 use crate::eval::Map;
 
 #[must_use]
-pub const fn create_map() -> Map<'static> {
+pub const fn create_map() -> Map {
     Map::new()
 }

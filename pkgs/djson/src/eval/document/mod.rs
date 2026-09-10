@@ -1,21 +1,19 @@
 pub mod map;
 
-use std::borrow::Cow;
-
 use crate::eval::{EvalError, document::map::Map};
 
-pub type Document<'input> = Map<'input>;
-pub type BuiltinFunction = for<'input> fn(&[Value<'input>]) -> Result<Value<'input>, EvalError>;
+pub type Document = Map;
+pub type BuiltinFunction = fn(&[Value]) -> Result<Value, EvalError>;
 
 #[derive(Debug, Clone)]
-pub enum Value<'input> {
+pub enum Value {
     None,
     Bool(bool),
     Int(i64),
     Float(f64),
-    Str(Cow<'input, str>),
+    Str(String),
     List(Vec<Self>),
-    Map(Map<'input>),
+    Map(Map),
     Function(BuiltinFunction),
 }
 
@@ -43,7 +41,7 @@ macro_rules! value {
     };
 }
 
-impl PartialEq for Value<'_> {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::None, Self::None) => true,
@@ -58,31 +56,37 @@ impl PartialEq for Value<'_> {
     }
 }
 
-impl<'input> From<&'input str> for Value<'input> {
-    fn from(value: &'input str) -> Self {
-        Self::Str(Cow::Borrowed(value))
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::Str(value.to_owned())
     }
 }
 
-impl From<bool> for Value<'_> {
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::Str(value)
+    }
+}
+
+impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
-impl From<i32> for Value<'_> {
+impl From<i32> for Value {
     fn from(value: i32) -> Self {
         Self::Int(i64::from(value))
     }
 }
 
-impl From<i64> for Value<'_> {
+impl From<i64> for Value {
     fn from(value: i64) -> Self {
         Self::Int(value)
     }
 }
 
-impl From<f64> for Value<'_> {
+impl From<f64> for Value {
     fn from(value: f64) -> Self {
         Self::Float(value)
     }

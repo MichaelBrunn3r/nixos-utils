@@ -9,12 +9,12 @@ use crate::{
     map,
 };
 
-pub const PI: Value<'static> = Value::Float(std::f64::consts::PI);
-pub const INFINITY: Value<'static> = Value::Float(f64::INFINITY);
-pub const NAN: Value<'static> = Value::Float(f64::NAN);
+pub const PI: Value = Value::Float(std::f64::consts::PI);
+pub const INFINITY: Value = Value::Float(f64::INFINITY);
+pub const NAN: Value = Value::Float(f64::NAN);
 
 #[must_use]
-pub fn create_map() -> Map<'static> {
+pub fn create_map() -> Map {
     map! {
         PI: PI,
         INFINITY: INFINITY,
@@ -29,41 +29,38 @@ pub fn create_map() -> Map<'static> {
     }
 }
 
-pub fn sin<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn sin(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::sin)
 }
 
-pub fn cos<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn cos(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::cos)
 }
 
-pub fn tan<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn tan(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::tan)
 }
 
-pub fn asin<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn asin(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::asin)
 }
 
-pub fn acos<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn acos(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::acos)
 }
 
-pub fn atan<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn atan(arguments: &[Value]) -> Result<Value, EvalError> {
     unary_float(arguments, f64::atan)
 }
 
-pub fn atan2<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn atan2(arguments: &[Value]) -> Result<Value, EvalError> {
     match numeric_pair(arguments) {
         Some((left, right)) => Ok(Value::Float(left.atan2(right))),
         None => Err(EvalError::TypeMismatch),
     }
 }
 
-fn unary_float<'input>(
-    arguments: &[Value<'input>],
-    operation: fn(f64) -> f64,
-) -> Result<Value<'input>, EvalError> {
+fn unary_float(arguments: &[Value], operation: fn(f64) -> f64) -> Result<Value, EvalError> {
     match arguments {
         [Value::Int(value)] => Ok(Value::Float(operation(*value as f64))),
         [Value::Float(value)] => Ok(Value::Float(operation(*value))),
@@ -71,14 +68,14 @@ fn unary_float<'input>(
     }
 }
 
-fn numeric_pair(arguments: &[Value<'_>]) -> Option<(f64, f64)> {
+fn numeric_pair(arguments: &[Value]) -> Option<(f64, f64)> {
     match arguments {
         [left, right] => Some((as_float(left)?, as_float(right)?)),
         _ => None,
     }
 }
 
-const fn as_float(value: &Value<'_>) -> Option<f64> {
+const fn as_float(value: &Value) -> Option<f64> {
     match value {
         Value::Int(value) => Some(*value as f64),
         Value::Float(value) => Some(*value),
@@ -90,15 +87,15 @@ const fn as_float(value: &Value<'_>) -> Option<f64> {
 mod tests {
     use super::*;
     use crate::{
-        eval::{evaluate_ast, stdlib},
+        eval::{Scope, evaluate_ast, stdlib},
         parser::Parser,
         value,
     };
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
     #[test]

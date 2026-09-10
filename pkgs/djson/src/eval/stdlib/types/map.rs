@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[must_use]
-pub fn create_map() -> Map<'static> {
+pub fn create_map() -> Map {
     map! {
         equals: Value::Function(equals),
         is_empty: Value::Function(is_empty),
@@ -16,14 +16,14 @@ pub fn create_map() -> Map<'static> {
     }
 }
 
-pub fn equals<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn equals(arguments: &[Value]) -> Result<Value, EvalError> {
     match arguments {
         [Value::Map(left), Value::Map(right)] => Ok(Value::Bool(left == right)),
         _ => Err(EvalError::TypeMismatch),
     }
 }
 
-pub fn is_empty<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn is_empty(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Map(map)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
@@ -31,17 +31,20 @@ pub fn is_empty<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Ev
     Ok(Value::Bool(map.is_empty()))
 }
 
-pub fn keys<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn keys(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Map(values)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
 
     Ok(Value::List(
-        values.keys().map(|key| Value::Str(key.into())).collect(),
+        values
+            .keys()
+            .map(|key| Value::Str(key.to_owned()))
+            .collect(),
     ))
 }
 
-pub fn values<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn values(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Map(map)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
@@ -49,7 +52,7 @@ pub fn values<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, Eval
     Ok(Value::List(map.values().cloned().collect()))
 }
 
-pub fn len<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
+pub fn len(arguments: &[Value]) -> Result<Value, EvalError> {
     let [Value::Map(map)] = arguments else {
         return Err(EvalError::TypeMismatch);
     };
@@ -64,15 +67,15 @@ pub fn len<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
 mod tests {
     use super::*;
     use crate::{
-        eval::{evaluate_ast, stdlib},
+        eval::{Scope, evaluate_ast, stdlib},
         parser::Parser,
         value,
     };
 
-    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+    fn evaluate(input: &str) -> Result<Value, EvalError> {
         let ast = Parser::new(input).parse().expect("valid input");
-        let scope = stdlib::new();
-        evaluate_ast(&ast, &scope)
+        let mut scope = Scope::child(stdlib::new());
+        evaluate_ast(&ast, &mut scope)
     }
 
     #[test]
