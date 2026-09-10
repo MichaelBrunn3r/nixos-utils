@@ -157,3 +157,48 @@ pub const fn is_nan<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>
         _ => Err(EvalError::TypeMismatch),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        eval::{EvalError, Value, evaluate_ast, stdlib},
+        parser::Parser,
+        value,
+    };
+
+    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+        let ast = Parser::new(input).parse().expect("valid input");
+        let scope = stdlib::new();
+        evaluate_ast(&ast, &scope)
+    }
+
+    #[test]
+    fn methods_can_be_invoked() {
+        let import_stdlib = "let std = import('std')\n";
+        let cases = [
+            ("(-2.5).abs()", value!(2.5)),
+            ("1.2.ceil()", value!(2)),
+            ("12.5.clamp(0.0, 10.0)", value!(10.0)),
+            ("1.8.floor()", value!(1)),
+            ("1.0.ln()", value!(0.0)),
+            ("8.0.log(2)", value!(3.0)),
+            ("100.0.log10()", value!(2.0)),
+            ("8.0.log2()", value!(3.0)),
+            ("1.0.is_finite()", value!(true)),
+            ("std.math.INFINITY.is_infinite()", value!(true)),
+            ("std.math.NAN.is_nan()", value!(true)),
+            ("2.5.max(4.0)", value!(4.0)),
+            ("2.5.min(4.0)", value!(2.5)),
+            ("1.5.round()", value!(2)),
+            ("9.0.sqrt()", value!(3.0)),
+        ];
+        for (expression, expected) in cases {
+            let expression = if expression.starts_with("std.") {
+                format!("{import_stdlib}{expression}")
+            } else {
+                expression.to_owned()
+            };
+            assert_eq!(evaluate(&expression), Ok(expected), "{expression}");
+        }
+    }
+}

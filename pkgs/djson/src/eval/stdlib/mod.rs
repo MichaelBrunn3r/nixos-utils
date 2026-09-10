@@ -1,10 +1,5 @@
-pub mod boolean;
-pub mod float;
-pub mod int;
-pub mod list;
-pub mod map;
 pub mod math;
-pub mod string;
+pub mod types;
 
 use std::rc::Rc;
 
@@ -12,6 +7,13 @@ use crate::{
     eval::{EvalError, Value, scope::Scope},
     map,
 };
+
+fn create_module() -> crate::eval::Map<'static> {
+    map! {
+        math: Value::Map(math::create_map()),
+        types: Value::Map(types::create_module()),
+    }
+}
 
 /// Constructs the standard lexical prelude.
 ///
@@ -27,37 +29,21 @@ pub fn new() -> Rc<Scope<'static>> {
     prelude()
 }
 
-/// Imports a standard module by name.
+/// Imports a builtin module by name.
 ///
 /// # Errors
 ///
 /// Returns [`EvalError::UnknownModule`] for an unknown module name and
 /// [`EvalError::TypeMismatch`] when the argument is not a string.
 pub fn import<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalError> {
-    match arguments {
-        [Value::Str(name)] if name == "std" => Ok(Value::Map(std_map())),
-        [Value::Str(name)] if name == "types" => Ok(Value::Map(types_map())),
-        [Value::Str(name)] => Err(EvalError::UnknownModule(name.to_string())),
-        _ => Err(EvalError::TypeMismatch),
-    }
-}
+    let [Value::Str(name)] = arguments else {
+        return Err(EvalError::TypeMismatch);
+    };
 
-fn std_map() -> crate::eval::Map<'static> {
-    map! {
-        math: Value::Map(math::create_map()),
-        types: Value::Map(types_map()),
-    }
-}
-
-fn types_map() -> crate::eval::Map<'static> {
-    map! {
-        bool: Value::Map(boolean::create_map()),
-        float: Value::Map(float::create_map()),
-        int: Value::Map(int::create_map()),
-        list: Value::Map(list::create_map()),
-        map: Value::Map(map::create_map()),
-        none: Value::Map(crate::eval::Map::new()),
-        str: Value::Map(string::create_map()),
+    match name.as_ref() {
+        "std" => Ok(Value::Map(create_module())),
+        "types" => Ok(Value::Map(types::create_module())),
+        _ => Err(EvalError::UnknownModule(name.to_string())),
     }
 }
 
@@ -73,7 +59,7 @@ pub(crate) fn type_member<'input>(value: &Value<'input>, name: &str) -> Option<V
         Value::Function(_) => return None,
     };
 
-    let types = types_map();
+    let types = types::create_module();
     let Value::Map(module) = types.get(type_name)? else {
         return None;
     };

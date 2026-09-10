@@ -102,54 +102,42 @@ mod tests {
     }
 
     #[test]
-    fn evaluates_math_builtins_through_the_pipeline() {
-        let document = evaluate(
-            "let std = import(\"std\")\nminimum: 4.min(2)\nmaximum: 2.5.max(4.0)\nlimited: 12.clamp(0, 10)\nlimited_float: 12.5.clamp(0.0, 10.0)\nnatural_log: 1.ln()\nbase_two_log: 8.log(2)\nbase_ten_log: 100.log(10)\ntangent: std.math.tan(0)\narcsine: std.math.asin(0)\narccosine: std.math.acos(1)\narctangent: std.math.atan(0)\nquadrant: std.math.atan2(1, 0)\nfinite: 1.0.is_finite()\ninfinite: 1.0.is_infinite()\nnan: 1.0.is_nan()\npi_value: std.math.PI\ninfinity_value: std.math.INFINITY\nnan_value: std.math.NAN",
-        )
-        .expect("math builtins should evaluate");
+    fn stdlib_members_can_be_used() {
+        use std::f64::consts::*;
 
-        let Value::Map(document) = document else {
-            panic!("expected map")
-        };
-        assert_eq!(document.get("minimum"), Some(&value!(2)));
-        assert_eq!(document.get("maximum"), Some(&value!(4.0)));
-        assert_eq!(document.get("limited"), Some(&value!(10)));
-        assert_eq!(document.get("limited_float"), Some(&value!(10.0)));
-        assert_eq!(document.get("natural_log"), Some(&value!(0.0)));
-        assert_eq!(document.get("base_two_log"), Some(&value!(3.0)));
-        assert_eq!(document.get("base_ten_log"), Some(&value!(2.0)));
-        assert_eq!(document.get("tangent"), Some(&value!(0.0)));
-        assert_eq!(document.get("arcsine"), Some(&value!(0.0)));
-        assert_eq!(document.get("arccosine"), Some(&value!(0.0)));
-        assert_eq!(document.get("arctangent"), Some(&value!(0.0)));
-        assert_eq!(
-            document.get("quadrant"),
-            Some(&value!(std::f64::consts::FRAC_PI_2))
-        );
-        assert_eq!(document.get("finite"), Some(&value!(true)));
-        assert_eq!(document.get("infinite"), Some(&value!(false)));
-        assert_eq!(document.get("nan"), Some(&value!(false)));
-        assert_eq!(
-            document.get("pi_value"),
-            Some(&value!(std::f64::consts::PI))
-        );
-        assert_eq!(document.get("infinity_value"), Some(&value!(f64::INFINITY)));
-        assert!(matches!(document.get("nan_value"), Some(Value::Float(value)) if value.is_nan()));
+        let import_stdlib = "let std = import('std')\n";
+        let cases = [
+            ("std.math.tan(std.math.PI / 4)", value!((PI / 4.0).tan())),
+            ("std.math.asin(1)", value!(1f64.asin())),
+            ("std.math.acos(0)", value!(0f64.acos())),
+            ("std.math.atan(1)", value!(1f64.atan())),
+            ("std.math.atan2(1, 1)", value!(1f64.atan2(1f64))),
+            ("std.math.PI", value!(PI)),
+            ("std.math.INFINITY", value!(INFINITY)),
+        ];
+        for (expression, expected) in cases {
+            let expression = format!("{import_stdlib}{expression}");
+            assert_eq!(evaluate(&expression), Ok(expected), "{expression}");
+        }
+
+        // Check NAN
+        let expression = format!("{import_stdlib}std.math.NAN");
+        assert!(matches!(
+            evaluate(&expression),
+            Ok(Value::Float(value)) if value.is_nan()
+        ));
     }
 
     #[test]
-    fn rejects_invalid_math_arguments_through_the_pipeline() {
-        assert_eq!(
-            evaluate("let std = import(\"std\")\nresult: std.math.cos(true)"),
-            Err(EvalError::TypeMismatch)
-        );
-        assert_eq!(
-            evaluate("let std = import(\"std\")\nresult: std.math.sin(1, 2)"),
-            Err(EvalError::TypeMismatch)
-        );
-        assert_eq!(
-            evaluate("result: 10.clamp(1)"),
-            Err(EvalError::TypeMismatch)
-        );
+    fn expect_errors() {
+        let import_stdlib = "let std = import('std')\n";
+        let cases = [
+            ("result: std.math.cos(true)", Err(EvalError::TypeMismatch)),
+            ("result: std.math.sin(1, 2)", Err(EvalError::TypeMismatch)),
+        ];
+        for (expression, expected) in cases {
+            let expression = format!("{import_stdlib}{expression}");
+            assert_eq!(evaluate(&expression), expected, "{expression}");
+        }
     }
 }

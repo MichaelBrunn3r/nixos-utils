@@ -90,3 +90,44 @@ pub fn min<'input>(arguments: &[Value<'input>]) -> Result<Value<'input>, EvalErr
         _ => Err(EvalError::TypeMismatch),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        eval::{EvalError, Value, evaluate_ast, stdlib},
+        parser::Parser,
+        value,
+    };
+
+    fn evaluate(input: &str) -> Result<Value<'_>, EvalError> {
+        let ast = Parser::new(input).parse().expect("valid input");
+        let scope = stdlib::new();
+        evaluate_ast(&ast, &scope)
+    }
+
+    #[test]
+    fn methods_can_be_invoked() {
+        let cases = [
+            ("(-2).abs()", value!(2)),
+            ("12.clamp(0, 10)", value!(10)),
+            ("1.ln()", value!(0.0)),
+            ("8.log(2)", value!(3.0)),
+            ("100.log10()", value!(2.0)),
+            ("8.log2()", value!(3.0)),
+            ("2.max(4)", value!(4)),
+            ("2.min(4)", value!(2)),
+            ("9.sqrt()", value!(3.0)),
+        ];
+        for (expression, expected) in cases {
+            assert_eq!(evaluate(expression), Ok(expected), "{expression}");
+        }
+    }
+
+    #[test]
+    fn expect_errors() {
+        let cases = [("10.clamp(1)", Err(EvalError::TypeMismatch))];
+        for (expression, expected) in cases {
+            assert_eq!(evaluate(expression), expected, "{expression}");
+        }
+    }
+}

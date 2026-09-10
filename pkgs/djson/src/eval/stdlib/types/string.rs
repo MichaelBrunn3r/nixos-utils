@@ -294,43 +294,36 @@ mod tests {
     }
 
     #[test]
-    fn evaluates_string_methods() {
-        let value = evaluate(
-            "char_length: \"héllo\".len_chars()\nbyte_length: \"héllo\".len_bytes()\nempty: \"\".is_empty()\nblank: \" \t\n\".is_blank()\nascii: \"hello\".is_ascii()\ncontains: \"hello\".contains(\"ell\")\nstarts: \"hello\".starts_with(\"he\")\nends: \"hello\".ends_with(\"lo\")\nremove_prefix: \"hello\".remove_prefix(\"he\")\nremove_suffix: \"hello\".remove_suffix(\"lo\")\ncount: \"hello hello\".count(\"hello\")\nfind: \"héllo\".find(\"ll\")\nsplit: \"a,b,c\".split(\",\")\nlines: \"one\ntwo\".lines()\ntrimmed: \"  hello  \".trim()\ntrimmed_start: \"  hello  \".trim_start()\ntrimmed_end: \"  hello  \".trim_end()\nlowercase: \"HÉLLO\".lowercase()\nreplaced: \"hello hello\".replace(\"hello\", \"hi\")\nrepeated: \"ha\".repeat(3)\npadded_start: \"7\".pad_start(3, \"0\")\npadded_end: \"7\".pad_end(3, \"0\")\nreversed: \"héllo\".reverse()",
-        )
-        .expect("string methods should evaluate");
-
-        let Value::Map(document) = value else {
-            panic!("expected map")
-        };
-        assert_eq!(document.get("char_length"), Some(&value!(5)));
-        assert_eq!(document.get("byte_length"), Some(&value!(6)));
-        assert_eq!(document.get("empty"), Some(&value!(true)));
-        assert_eq!(document.get("blank"), Some(&value!(true)));
-        assert_eq!(document.get("ascii"), Some(&value!(true)));
-        assert_eq!(document.get("contains"), Some(&value!(true)));
-        assert_eq!(document.get("starts"), Some(&value!(true)));
-        assert_eq!(document.get("ends"), Some(&value!(true)));
-        assert_eq!(document.get("remove_prefix"), Some(&value!("llo")));
-        assert_eq!(document.get("remove_suffix"), Some(&value!("hel")));
-        assert_eq!(document.get("count"), Some(&value!(2)));
-        assert_eq!(document.get("find"), Some(&value!(2)));
-        assert_eq!(document.get("split"), Some(&value!(["a", "b", "c"])));
-        assert_eq!(document.get("lines"), Some(&value!(["one", "two"])));
-        assert_eq!(document.get("trimmed"), Some(&value!("hello")));
-        assert_eq!(document.get("trimmed_start"), Some(&value!("hello  ")));
-        assert_eq!(document.get("trimmed_end"), Some(&value!("  hello")));
-        assert_eq!(document.get("lowercase"), Some(&value!("héllo")));
-        assert_eq!(document.get("replaced"), Some(&value!("hi hi")));
-        assert_eq!(document.get("repeated"), Some(&value!("hahaha")));
-        assert_eq!(document.get("padded_start"), Some(&value!("007")));
-        assert_eq!(document.get("padded_end"), Some(&value!("700")));
-        assert_eq!(document.get("reversed"), Some(&value!("olléh")));
-    }
-
-    #[test]
-    fn creates_uppercase_strings() {
-        assert_eq!(evaluate("\"héllo\".uppercase()"), Ok(value!("HÉLLO")));
+    fn methods_can_be_invoked() {
+        let cases = [
+            ("'héllo'.len_chars()", value!(5)),
+            ("'héllo'.len_bytes()", value!(6)),
+            ("''.is_empty()", value!(true)),
+            ("' \\t\\n'.is_blank()", value!(true)),
+            ("'hello'.is_ascii()", value!(true)),
+            ("'hello'.contains('ell')", value!(true)),
+            ("'hello'.starts_with('he')", value!(true)),
+            ("'hello'.ends_with('lo')", value!(true)),
+            ("'hello'.remove_prefix('he')", value!("llo")),
+            ("'hello'.remove_suffix('lo')", value!("hel")),
+            ("'hello hello'.count('hello')", value!(2)),
+            ("'héllo'.find('ll')", value!(2)),
+            ("'a,b,c'.split(',')", value!(["a", "b", "c"])),
+            ("'one\\ntwo'.lines()", value!(["one", "two"])),
+            ("'  hello  '.trim()", value!("hello")),
+            ("'  hello  '.trim_start()", value!("hello  ")),
+            ("'  hello  '.trim_end()", value!("  hello")),
+            ("'héllo'.uppercase()", value!("HÉLLO")),
+            ("'HÉLLO'.lowercase()", value!("héllo")),
+            ("'hello hello'.replace('hello', 'hi')", value!("hi hi")),
+            ("'ha'.repeat(3)", value!("hahaha")),
+            ("'7'.pad_start(3, '0')", value!("007")),
+            ("'7'.pad_end(3, '0')", value!("700")),
+            ("'héllo'.reverse()", value!("olléh")),
+        ];
+        for (expression, expected) in cases {
+            assert_eq!(evaluate(expression), Ok(expected), "{expression}");
+        }
     }
 
     #[test]

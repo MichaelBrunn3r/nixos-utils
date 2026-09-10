@@ -121,36 +121,34 @@ mod tests {
             Ok(value!(true))
         );
         assert_eq!(evaluate("[1, 2].equals([1, 3])"), Ok(value!(false)));
-        assert_eq!(evaluate("[1].equals(1)"), Err(EvalError::TypeMismatch));
     }
 
     #[test]
-    fn evaluates_list_methods() {
-        let value = evaluate(
-            "any: [false, true].any()\nempty: [].is_empty()\nnon_empty: [1].is_empty()\nlength: [1, 2, 3].len()\nfirst: [1, 2].first()\nlast: [1, 2].last()",
-        )
-        .expect("list methods should evaluate");
-
-        let Value::Map(document) = value else {
-            panic!("expected map")
-        };
-        assert_eq!(document.get("any"), Some(&value!(true)));
-        assert_eq!(document.get("empty"), Some(&value!(true)));
-        assert_eq!(document.get("non_empty"), Some(&value!(false)));
-        assert_eq!(document.get("length"), Some(&value!(3)));
-        assert_eq!(document.get("first"), Some(&value!(1)));
-        assert_eq!(document.get("last"), Some(&value!(2)));
+    fn methods_can_be_invoked() {
+        let cases = [
+            ("[false, true].any()", value!(true)),
+            ("[].is_empty()", value!(true)),
+            ("[1].is_empty()", value!(false)),
+            ("[1, 2, 3].len()", value!(3)),
+            ("[1, 2].first()", value!(1)),
+            ("[1, 2].last()", value!(2)),
+        ];
+        for (expression, expected) in cases {
+            assert_eq!(evaluate(expression), Ok(expected), "{expression}");
+        }
     }
 
     #[test]
-    fn rejects_non_boolean_entries() {
-        assert_eq!(evaluate("[true, 1].all()"), Err(EvalError::TypeMismatch));
-        assert_eq!(evaluate("[true, 1].any()"), Err(EvalError::TypeMismatch));
-    }
-
-    #[test]
-    fn rejects_first_and_last_on_empty_lists() {
-        assert_eq!(evaluate("[].first()"), Err(EvalError::TypeMismatch));
-        assert_eq!(evaluate("[].last()"), Err(EvalError::TypeMismatch));
+    fn expect_errors() {
+        let cases = [
+            ("[true, 1].all()", Err(EvalError::TypeMismatch)),
+            ("[true, 1].any()", Err(EvalError::TypeMismatch)),
+            ("[].first()", Err(EvalError::TypeMismatch)),
+            ("[].last()", Err(EvalError::TypeMismatch)),
+            ("[1].equals(1)", Err(EvalError::TypeMismatch)),
+        ];
+        for (expression, expected) in cases {
+            assert_eq!(evaluate(expression), expected, "{expression}");
+        }
     }
 }
