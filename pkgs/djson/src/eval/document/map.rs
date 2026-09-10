@@ -43,7 +43,6 @@ impl<'input> Map<'input> {
         self.0.len()
     }
 
-    #[must_use]
     pub fn keys(&self) -> impl Iterator<Item = &'input str> + '_ {
         self.0.keys().copied()
     }
