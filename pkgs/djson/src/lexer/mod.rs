@@ -85,7 +85,7 @@ impl<'input> Lexer<'input> {
         }
 
         Err(LexerError::UnterminatedBlockComment {
-            span: (start, "/*".len()).into(),
+            span: (start, 1).into(),
         })
     }
     //endregion Skip
@@ -114,13 +114,6 @@ impl<'input> Lexer<'input> {
         })
     }
 
-    fn err_invalid_number(&self, start: usize, reason: InvalidNumberReason) -> LexerError {
-        LexerError::InvalidNumber {
-            reason,
-            span: (start, self.pos - start).into(),
-        }
-    }
-
     fn read_number(&mut self) -> LexerResult<'input> {
         let start = self.pos;
         let mut has_decimals = false;
@@ -142,8 +135,9 @@ impl<'input> Lexer<'input> {
                     }) =>
                 {
                     if has_decimals {
-                        return Err(self.err_invalid_number(
+                        return Err(Self::err_invalid_number(
                             start,
+                            self.pos - start,
                             InvalidNumberReason::MultipleDecimalPoints,
                         ));
                     }
@@ -162,13 +156,16 @@ impl<'input> Lexer<'input> {
         };
 
         if has_decimals {
-            literal
-                .parse::<f64>()
-                .map(Token::Float)
-                .map_err(|_| self.err_invalid_number(start, InvalidNumberReason::ParseFloat))
+            literal.parse::<f64>().map(Token::Float).map_err(|_| {
+                Self::err_invalid_number(start, self.pos - start, InvalidNumberReason::ParseFloat)
+            })
         } else {
             literal.parse::<i64>().map(Token::Int).map_err(|error| {
-                self.err_invalid_number(start, InvalidNumberReason::ParseInt(*error.kind()))
+                Self::err_invalid_number(
+                    start,
+                    self.pos - start,
+                    InvalidNumberReason::ParseInt(*error.kind()),
+                )
             })
         }
     }
@@ -189,8 +186,9 @@ impl<'input> Lexer<'input> {
                 }
                 '.' => {
                     if has_decimals {
-                        return Err(self.err_invalid_number(
+                        return Err(Self::err_invalid_number(
                             start,
+                            self.pos - start,
                             InvalidNumberReason::MultipleDecimalPoints,
                         ));
                     }
@@ -200,11 +198,17 @@ impl<'input> Lexer<'input> {
                     self.eat();
                 }
                 '_' | '\'' => {
-                    self.eat();
-                    if !self.peek().is_some_and(|next| next.is_ascii_digit()) {
-                        return Err(
-                            self.err_invalid_number(start, InvalidNumberReason::InvalidSeparator)
-                        );
+                    let separator_start = self.pos;
+                    self.skip_while(|next| matches!(next, '_' | '\''));
+                    let separator_length = self.pos - separator_start;
+                    if separator_length != 1
+                        || !self.peek().is_some_and(|next| next.is_ascii_digit())
+                    {
+                        return Err(Self::err_invalid_number(
+                            separator_start,
+                            separator_length,
+                            InvalidNumberReason::InvalidSeparator,
+                        ));
                     }
                 }
                 _ => break,
@@ -250,6 +254,15 @@ impl<'input> Lexer<'input> {
         }
     }
     //endregion Read
+
+    //region Error
+    fn err_invalid_number(start: usize, length: usize, reason: InvalidNumberReason) -> LexerError {
+        LexerError::InvalidNumber {
+            reason,
+            span: (start, length).into(),
+        }
+    }
+    //endregion Error
 }
 
 impl<'input> Iterator for Lexer<'input> {
@@ -454,10 +467,18 @@ mod tests {
     fn diagnostics() {
         let cases = [
             (
-                "invalid number",
+                "int overflow",
                 "{
                     foo: 1
                     overflow: 9223372036854775808
+                    bar: 2
+                }",
+            ),
+            (
+                "int invalid separator",
+                "{
+                    foo: 1
+                    sep: 123___''_456
                     bar: 2
                 }",
             ),
@@ -493,7 +514,7 @@ mod tests {
                 handler
                     .render_report(&mut rendered, report.as_ref())
                     .expect("rendering a lexer error should succeed");
-                fmt_snapshot_case(label, &[("input", input), ("error", &rendered)])
+                fmt_snapshot_case(label, &[("error", &rendered)])
             })
             .collect::<Vec<_>>()
             .join("\n\n");

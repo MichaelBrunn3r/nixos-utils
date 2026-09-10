@@ -1,4 +1,8 @@
 {pkgs, ...}: {
+  imports = [
+    ./pkgs/vscode-djson/devenv.nix
+  ];
+
   languages.rust = {
     enable = true;
     channel = "nightly";

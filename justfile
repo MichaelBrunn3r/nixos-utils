@@ -23,4 +23,4 @@ profile bin:
     samply record -- {{ target_dir }}/profiling/{{ bin }}
 
 vscode-djson:
-    cd pkgs/vscode-djson && vsce package
+    cd pkgs/vscode-djson && deno task build && vsce package --no-dependencies

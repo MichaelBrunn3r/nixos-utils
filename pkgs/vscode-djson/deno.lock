@@ -1,0 +1,21 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:vscode-oniguruma@*": "2.0.1",
+    "npm:vscode-textmate@*": "9.3.2"
+  },
+  "npm": {
+    "vscode-oniguruma@2.0.1": {
+      "integrity": "sha512-poJU8iHIWnC3vgphJnrLZyI3YdqRlR27xzqDmpPXYzA93R4Gk8z7T6oqDzDoHjoikA2aS82crdXFkjELCdJsjQ=="
+    },
+    "vscode-textmate@9.3.2": {
+      "integrity": "sha512-n2uGbUcrjhUEBH16uGA0TvUfhWwliFZ1e3+pTjrkim1Mt7ydB41lV08aUvsi70OlzDWp6X7Bx3w/x3fAXIsN0Q=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:vscode-oniguruma@*",
+      "npm:vscode-textmate@*"
+    ]
+  }
+}

@@ -12,6 +12,14 @@ Syntax highlighting and editor support for the DJSON language.
 
 Open the repository in VS Code and press `F5` to launch an Extension Development Host. Open a DJSON file in that window to inspect the grammar.
 
+The TextMate grammar is defined in TypeScript and generated into `syntaxes/`:
+
+```text
+deno task build
+```
+
+Use `deno task check` and `deno task fmt` to validate the project.
+
 ## Packaging
 
 Run the repository recipe below to create a local VSIX:

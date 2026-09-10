@@ -24,7 +24,7 @@ impl<'input> Parser<'input> {
         }
     }
 
-    pub fn parse(mut self) -> Result<AST<'input>, ParseError> {
+    pub fn parse(mut self) -> ParserResult<AST<'input>> {
         let mut statements = Vec::new();
         self.skip_separators()?;
 
@@ -36,7 +36,7 @@ impl<'input> Parser<'input> {
         Ok(AST { statements })
     }
 
-    fn parse_statement(&mut self) -> Result<Statement<'input>, ParseError> {
+    fn parse_statement(&mut self) -> ParserResult<Statement<'input>> {
         if matches!(self.tokens.peek(), Some(Ok(Token::Id("let")))) {
             self.next_token()?;
             if matches!(self.tokens.peek(), Some(Ok(Token::Colon))) {
@@ -57,9 +57,8 @@ impl<'input> Parser<'input> {
         let key = match expression {
             Expr::Id(Identifier::Simple(key)) | Expr::Str(key) => key,
             expression => {
-                return Err(ParseError {
-                    line: 0,
-                    message: format!("expected a key: {expression:?}"),
+                return Err(ParserError::ExpectedKey {
+                    expression: format!("{expression:?}"),
                 });
             }
         };
@@ -71,7 +70,7 @@ impl<'input> Parser<'input> {
         }))
     }
 
-    fn parse_let(&mut self) -> Result<Statement<'input>, ParseError> {
+    fn parse_let(&mut self) -> ParserResult<Statement<'input>> {
         let name = match self.next_token()? {
             Token::Id(value) if value != "let" => value,
             token => return Err(Self::unexpected(&token, "expected an identifier")),
@@ -83,7 +82,7 @@ impl<'input> Parser<'input> {
         }))
     }
 
-    fn parse_expression(&mut self, min_binding_power: u8) -> Result<Expr<'input>, ParseError> {
+    fn parse_expression(&mut self, min_binding_power: u8) -> ParserResult<Expr<'input>> {
         let mut left = self.parse_prefix()?;
 
         while let Some(Ok(token)) = self.tokens.peek() {
@@ -109,12 +108,12 @@ impl<'input> Parser<'input> {
         Ok(left)
     }
 
-    fn parse_prefix(&mut self) -> Result<Expr<'input>, ParseError> {
+    fn parse_prefix(&mut self) -> ParserResult<Expr<'input>> {
         let token = self.next_token()?;
         self.parse_prefix_token(token)
     }
 
-    fn parse_prefix_token(&mut self, token: Token<'input>) -> Result<Expr<'input>, ParseError> {
+    fn parse_prefix_token(&mut self, token: Token<'input>) -> ParserResult<Expr<'input>> {
         match token {
             Token::Bool(value) => self.parse_postfix(Expr::Bool(value)),
             Token::Int(value) => self.parse_postfix(Expr::Int(value)),
@@ -134,7 +133,7 @@ impl<'input> Parser<'input> {
         }
     }
 
-    fn parse_unary(&mut self, operator: UnaryOp) -> Result<Expr<'input>, ParseError> {
+    fn parse_unary(&mut self, operator: UnaryOp) -> ParserResult<Expr<'input>> {
         let value = self.parse_expression(25)?;
         Ok(Expr::Unary {
             op: operator,
@@ -142,7 +141,7 @@ impl<'input> Parser<'input> {
         })
     }
 
-    fn parse_postfix(&mut self, mut expression: Expr<'input>) -> Result<Expr<'input>, ParseError> {
+    fn parse_postfix(&mut self, mut expression: Expr<'input>) -> ParserResult<Expr<'input>> {
         loop {
             expression = match self.tokens.peek() {
                 Some(Ok(Token::Dot)) => {
@@ -164,7 +163,7 @@ impl<'input> Parser<'input> {
         }
     }
 
-    fn parse_call(&mut self, callee: Expr<'input>) -> Result<Expr<'input>, ParseError> {
+    fn parse_call(&mut self, callee: Expr<'input>) -> ParserResult<Expr<'input>> {
         self.expect_next_token(&Token::LParen)?;
         let mut arguments = Vec::new();
         self.skip_separators()?;
@@ -193,7 +192,7 @@ impl<'input> Parser<'input> {
         })
     }
 
-    fn parse_list(&mut self) -> Result<Expr<'input>, ParseError> {
+    fn parse_list(&mut self) -> ParserResult<Expr<'input>> {
         let mut values = Vec::new();
         self.skip_separators()?;
 
@@ -218,7 +217,7 @@ impl<'input> Parser<'input> {
         self.parse_postfix(Expr::List(values))
     }
 
-    fn parse_map(&mut self) -> Result<Expr<'input>, ParseError> {
+    fn parse_map(&mut self) -> ParserResult<Expr<'input>> {
         let mut entries = Vec::new();
         self.skip_separators()?;
 
@@ -261,14 +260,14 @@ impl<'input> Parser<'input> {
         }
     }
 
-    fn skip_separators(&mut self) -> Result<(), ParseError> {
+    fn skip_separators(&mut self) -> ParserResult<()> {
         while matches!(self.tokens.peek(), Some(Ok(Token::Sep))) {
             self.next_token()?;
         }
         Ok(())
     }
 
-    fn expect_next_token(&mut self, expected: &Token<'input>) -> Result<(), ParseError> {
+    fn expect_next_token(&mut self, expected: &Token<'input>) -> ParserResult<()> {
         let token = self.next_token()?;
         if token == *expected {
             Ok(())
@@ -277,40 +276,46 @@ impl<'input> Parser<'input> {
         }
     }
 
-    fn next_token(&mut self) -> Result<Token<'input>, ParseError> {
+    fn next_token(&mut self) -> ParserResult<Token<'input>> {
         self.tokens
             .next()
             .transpose()
-            .map_err(ParseError::from)?
-            .ok_or_else(|| ParseError {
-                line: 0,
-                message: "unexpected end of input".to_owned(),
-            })
+            .map_err(ParserError::from)?
+            .ok_or(ParserError::UnexpectedEof)
     }
 
-    fn unexpected(token: &Token<'input>, message: &str) -> ParseError {
-        ParseError {
-            line: 0,
-            message: format!("{message}: {token:?}"),
+    fn unexpected(token: &Token<'input>, expected: &str) -> ParserError {
+        ParserError::UnexpectedToken {
+            expected: expected.to_owned(),
+            found: format!("{token:?}"),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseError {
-    pub line: usize,
-    pub message: String,
-}
 //endregion Parser
 
-impl From<LexerError> for ParseError {
-    fn from(error: LexerError) -> Self {
-        Self {
-            line: 0,
-            message: error.to_string(),
-        }
-    }
+//region ParserResult
+pub type ParserResult<T> = Result<T, ParserError>;
+
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum ParserError {
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Lexer(#[from] LexerError),
+
+    #[error("unexpected end of input")]
+    #[diagnostic(code(parser::unexpected_eof))]
+    UnexpectedEof,
+
+    #[error("expected {expected}, found {found}")]
+    #[diagnostic(code(parser::unexpected_token))]
+    UnexpectedToken { expected: String, found: String },
+
+    #[error("expected a key, found {expression}")]
+    #[diagnostic(code(parser::expected_key))]
+    ExpectedKey { expression: String },
 }
+//endregion ParserResult
 
 #[cfg(test)]
 mod tests {

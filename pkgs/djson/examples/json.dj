@@ -1,6 +1,6 @@
 {
 	"string": "Hello, JSON!",
-	"escaped-string": "line one\nline two\t\"quoted\"\\backslash",
+	"escaped-string": "line one\nline two\t\"quoted\"\\backslash\\\\\\",
 	"integer": 42,
 	"negative-integer": -7,
 	"fraction": 3.14159,

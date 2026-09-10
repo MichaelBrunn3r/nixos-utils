@@ -1,0 +1,14 @@
+{
+    "nodeModulesDir": "auto",
+    "imports": {
+        "vscode-oniguruma": "npm:vscode-oniguruma",
+        "vscode-textmate": "npm:vscode-textmate"
+    },
+    "tasks": {
+        "build": "deno run --allow-write=syntaxes build.ts",
+        "check": "deno check build.ts src/grammar.ts tests/grammar_test.ts",
+        "fmt": "deno fmt build.ts src/grammar.ts tests/grammar_test.ts",
+        "lint": "deno lint",
+        "test": "deno task build && deno test --allow-env=VSCODE_TEXTMATE_DEBUG --allow-read=node_modules tests/grammar_test.ts"
+    }
+}
