@@ -88,3 +88,12 @@ list_methods: [
 	[1, 2].first()      == 1,     // first element
 	[1, 2].last()       == 2,     // last element
 ].all()
+
+// map
+map_methods: [
+	{b: 2, a: 1, c: 3}.equals({a: 1, b: 2, c: 3}),  	// equality ignores key order
+	{b: 2, a: 1, c: 3}.is_empty() == false,          	// empty-value check
+	{b: 2, a: 1, c: 3}.keys().equals(["a", "b", "c"]), 	// keys in sorted order
+	{b: 2, a: 1, c: 3}.len() == 3,           			// entry count
+	{b: 2, a: 1, c: 3}.values().equals([1, 2, 3]),   	// values in order of sorted keys
+].all()

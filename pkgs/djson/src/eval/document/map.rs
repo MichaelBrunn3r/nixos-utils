@@ -37,6 +37,20 @@ impl<'input> Map<'input> {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[must_use]
+    pub fn keys(&self) -> impl Iterator<Item = &'input str> + '_ {
+        self.0.keys().copied()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &Value<'input>> + '_ {
+        self.0.values()
+    }
 }
 
 impl Default for Map<'_> {
