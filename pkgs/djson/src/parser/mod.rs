@@ -366,8 +366,7 @@ impl<'input> Parser<'input> {
     fn parse_if(&mut self) -> ParserResult<Expr<'input>> {
         let condition = {
             let first = self.next_token()?;
-            let expr = self.parse_expr(first, 0)?;
-            expr
+            self.parse_expr(first, 0)?
         };
 
         let then = {

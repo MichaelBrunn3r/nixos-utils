@@ -1,0 +1,41 @@
+{
+	"string": "Hello, JSON!",
+	"escaped-string": "line one\nline two\t\"quoted\"\\backslash\\\\\\",
+	"int": {
+		"pos": 42,
+		"neg": -7
+	},
+	"fraction": 3.14159,
+	"null": null,
+	"bool": [
+		true,
+		false
+	],
+	"array": {
+		"empty": [],
+		"mixed": [
+			"string",
+			0,
+			-1.5,
+			true,
+			false,
+			[],
+			{}
+		]
+	},
+	"object": {
+		"empty": {},
+		"nested": {
+			"string": "value",
+			"number": 100,
+			"array": [
+				1,
+				2,
+				3
+			],
+			"object": {
+				"key": "value"
+			}
+		}
+	}
+}

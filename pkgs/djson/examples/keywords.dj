@@ -1,4 +1,16 @@
 #!/usr/bin/env djson
 
-let a = 42
-let: a
+let a = true
+let: true
+
+if: true
+if_else: true
+else: true
+
+keywords_as_keys: {
+    let: true
+
+    if: true
+    if_else: true
+    else: true
+}

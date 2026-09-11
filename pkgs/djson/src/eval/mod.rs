@@ -269,6 +269,7 @@ fn evaluate_binary(op: &InfixOp, left: Value, right: Value) -> Result<Value, Eva
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvalError {
+    AssertionFailed,
     DuplicateKey(String),
     DivisionByZero,
     MixedDocumentForms,

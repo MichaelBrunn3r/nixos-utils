@@ -1,3 +1,4 @@
+pub mod assert;
 pub mod math;
 pub mod types;
 
@@ -10,6 +11,7 @@ use crate::{
 
 fn create_module() -> Map {
     map! {
+        assert: Value::Map(assert::create_map()),
         math: Value::Map(math::create_map()),
         types: Value::Map(types::create_module()),
     }
