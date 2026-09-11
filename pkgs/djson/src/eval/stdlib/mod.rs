@@ -17,6 +17,13 @@ fn create_module() -> Map {
     }
 }
 
+fn create_modules() -> Map {
+    map! {
+        std: Value::Map(create_module()),
+        types: Value::Map(types::create_module()),
+    }
+}
+
 /// Constructs the standard lexical prelude.
 ///
 /// The prelude is installed as the root scope for normal evaluation and
@@ -33,6 +40,9 @@ pub fn new() -> Rc<Scope> {
 
 /// Imports a builtin module by name.
 ///
+/// Names may be dotted paths such as `std.assert` or `types.int`, resolved
+/// against the builtin module tree.
+///
 /// # Errors
 ///
 /// Returns [`EvalError::UnknownModule`] for an unknown module name and
@@ -42,11 +52,10 @@ pub fn import(arguments: &[Value]) -> Result<Value, EvalError> {
         return Err(EvalError::TypeMismatch);
     };
 
-    match name.as_str() {
-        "std" => Ok(Value::Map(create_module())),
-        "types" => Ok(Value::Map(types::create_module())),
-        _ => Err(EvalError::UnknownModule(name.to_owned())),
-    }
+    create_modules()
+        .get_path(name)
+        .cloned()
+        .ok_or_else(|| EvalError::UnknownModule(name.to_owned()))
 }
 
 pub(crate) fn type_member(value: &Value, name: &str) -> Option<Value> {

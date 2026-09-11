@@ -1,15 +1,16 @@
 #!/usr/bin/env djson
 
-let std = import("std")
+let math = import("std.math")
+let assert = import("std.assert")
 
 // int
-int: [
+int: assert.assert([
 	1 		== 1
 	0001 	== 1
 	10_000  == 10000
 	10'000  == 10000
-].all()
-int_methods: [
+].all())
+int_methods: assert.assert([
 	(-42).abs()     == 42,  // absolute value
 	42.clamp(0, 10) == 10,  // constrain to a range
 	1.ln()          == 0.0, // natural logarithm
@@ -19,16 +20,16 @@ int_methods: [
 	7.max(12)       == 12,  // maximum value
 	7.min(12)       == 7,   // minimum value
 	9.sqrt()        == 3.0, // square root
-].all()
+].all())
 
 // float
-float: [
+float: assert.assert([
 	1.0 			== 1.0,
 	000001.100000 	== 1.1
 	10_000.0 		== 10000.0
 	10'000.0		== 10000.0
-].all()
-float_methods: [
+].all())
+float_methods: assert.assert([
 	(-4.5).abs()            		== 4.5,     // absolute value
 	3.25.ceil()             		== 4,       // round up
 	42.5.clamp(0.0, 10.0)   		== 10.0,    // constrain to a range
@@ -38,22 +39,22 @@ float_methods: [
 	256.0.log2()            		== 8.0,     // base-2 logarithm
 	1000.0.log10()          		== 3.0,     // base-10 logarithm
 	1.0.is_finite()         		== true,    // finite-value check
-	std.math.INFINITY.is_finite()  	== false,   // infinity is not finite
-	std.math.INFINITY.is_infinite() == true,   	// infinity check
-	std.math.NAN.is_finite()        == false,   // NaN is not finite
-	std.math.NAN.is_infinite()      == false,   // NaN is not infinity
-	std.math.NAN.is_nan()           == true,    // NaN is not a number
+	math.INFINITY.is_finite()  		== false,   // infinity is not finite
+	math.INFINITY.is_infinite() 	== true,   	// infinity check
+	math.NAN.is_finite()        	== false,   // NaN is not finite
+	math.NAN.is_infinite()      	== false,   // NaN is not infinity
+	math.NAN.is_nan()           	== true,    // NaN is not a number
 	7.5.max(12.5)           		== 12.5,    // maximum value
 	7.5.min(12.5)           		== 7.5,     // minimum value
 	3.5.round()             		== 4,       // nearest integer
 	9.0.sqrt()              		== 3.0,     // square root
-].all()
+].all())
 
 // string
-string: [
+string: assert.assert([
 	"abc" == 'abc'
-].all()
-string_methods: [
+].all())
+string_methods: assert.assert([
 	"héllo".len_chars()             			== 5,       	// Unicode scalar count
 	"héllo".len_bytes()             			== 6,       	// UTF-8 byte count
 	"".is_empty()                   			== true,    	// empty-value check
@@ -79,23 +80,23 @@ string_methods: [
 
 	"a,b,c".split(",").equals(["a", "b", "c"]), 				// split into parts
 	"one\ntwo".lines().equals(["one", "two"]), 					// split into lines
-].all()
+].all())
 
 // list
-list_methods: [
+list_methods: assert.assert([
 	[true, true].all()  == true,  // whether every element is true
 	[false, true].any() == true,  // whether any element is true
 	[].is_empty()       == true,  // empty-value check
 	[1, 2, 3].len()     == 3,     // element count
 	[1, 2].first()      == 1,     // first element
 	[1, 2].last()       == 2,     // last element
-].all()
+].all())
 
 // map
-map_methods: [
+map_methods: assert.assert([
 	{b: 2, a: 1, c: 3}.equals({a: 1, b: 2, c: 3}),  	// equality ignores key order
 	{b: 2, a: 1, c: 3}.is_empty() == false,          	// empty-value check
 	{b: 2, a: 1, c: 3}.keys().equals(["a", "b", "c"]), 	// keys in sorted order
 	{b: 2, a: 1, c: 3}.len() == 3,           			// entry count
 	{b: 2, a: 1, c: 3}.values().equals([1, 2, 3]),   	// values in order of sorted keys
-].all()
+].all())

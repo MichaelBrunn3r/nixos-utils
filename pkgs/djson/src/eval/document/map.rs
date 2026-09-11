@@ -29,6 +29,25 @@ impl Map {
         self.0.get(key)
     }
 
+    /// Returns the value at a dotted `path`, or `None` when any segment is missing.
+    ///
+    /// Only nested maps are traversed; encountering a non-map value before the
+    /// final segment stops the lookup with `None`.
+    #[must_use]
+    pub fn get_path(&self, path: &str) -> Option<&Value> {
+        let mut segments = path.split('.');
+        let mut value = self.get(segments.next()?)?;
+
+        for segment in segments {
+            let Value::Map(map) = value else {
+                return None;
+            };
+            value = map.get(segment)?;
+        }
+
+        Some(value)
+    }
+
     pub fn insert(&mut self, key: &str, value: Value) -> Option<Value> {
         self.0.insert(key.to_owned(), value)
     }
@@ -86,7 +105,7 @@ impl IntoIterator for Map {
 #[cfg(test)]
 mod tests {
     use super::Map;
-    use crate::eval::Value;
+    use crate::{eval::Value, value};
 
     #[test]
     fn map_macro_constructs_map() {
@@ -111,5 +130,20 @@ mod tests {
         };
 
         assert_eq!(map.get("answer"), Some(&Value::Int(42)));
+    }
+
+    #[test]
+    fn get_path_traverses_nested_maps() {
+        let map = map! {
+            server: value!({ database: { host: "localhost" } }),
+        };
+
+        assert_eq!(
+            map.get_path("server.database.host"),
+            Some(&value!("localhost"))
+        );
+        assert_eq!(map.get_path("server.database.port"), None);
+        assert_eq!(map.get_path("server.host"), None);
+        assert_eq!(map.get_path("missing"), None);
     }
 }

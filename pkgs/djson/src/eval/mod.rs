@@ -416,6 +416,22 @@ mod tests {
     }
 
     #[test]
+    fn imports_nested_modules_by_dotted_path() {
+        assert_eq!(
+            evaluate("let assert = import(\"std.assert\")\nassert.assert(true)"),
+            Ok(value!(true))
+        );
+        assert_eq!(
+            evaluate("let int = import(\"types.int\")\nint.sqrt(9)"),
+            Ok(value!(3.0))
+        );
+        assert_eq!(
+            evaluate("import(\"std.missing\")"),
+            Err(EvalError::UnknownModule("std.missing".to_owned()))
+        );
+    }
+
+    #[test]
     fn rejects_duplicate_let_bindings() {
         assert_eq!(
             evaluate("let value = 1\nlet value = 2"),
@@ -550,27 +566,7 @@ pub mod test_utils {
     #[allow(clippy::missing_panics_doc)]
     pub fn assert_entries(document: &Document, expected: &[(&str, Value)]) {
         for (key, value) in expected {
-            assert_eq!(value_at_path(document, key), Some(value));
+            assert_eq!(document.get_path(key), Some(value));
         }
-    }
-
-    fn value_at_path<'document>(
-        document: &'document Document,
-        path: &str,
-    ) -> Option<&'document Value> {
-        let mut value = None;
-
-        for (index, segment) in path.split('.').enumerate() {
-            value = if index == 0 {
-                document.get(segment)
-            } else {
-                match value? {
-                    Value::Map(map) => map.get(segment),
-                    _ => return None,
-                }
-            };
-        }
-
-        value
     }
 }
