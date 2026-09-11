@@ -8,7 +8,7 @@ use djson::{
 
 fn evaluate(c: &mut Criterion) {
     let input = include_str!("./res/example.dj");
-    let ast = Parser::new(input).parse().expect("valid input");
+    let ast = Parser::new(input).parse_stmnts().expect("valid input");
     let root = stdlib::new();
 
     c.bench_function("evaluate", |benchmark| {

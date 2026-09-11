@@ -11,12 +11,11 @@ use crate::{
         Lexer, LexerError,
         token::{Spanned, Token},
     },
-    parser::ast::{BinaryOp, Expr, Identifier, KV, Let, Statement, UnaryOp},
+    parser::ast::{Expr, Identifier, InfixOp, KV, Let, PrefixOp, Statement},
 };
 
 //region Parser
 pub struct Parser<'input> {
-    input: &'input str,
     tokens: Peekable<Lexer<'input>>,
     last_span: miette::SourceSpan,
     last_expression_span: miette::SourceSpan,
@@ -26,162 +25,131 @@ impl<'input> Parser<'input> {
     #[must_use]
     pub fn new(input: &'input str) -> Self {
         Self {
-            input,
             tokens: Lexer::new(input).peekable(),
             last_span: (0, 0).into(),
             last_expression_span: (0, 0).into(),
         }
     }
 
-    pub fn parse(mut self) -> ParserResult<AST<'input>> {
+    //region Parse statements
+    /// Parses the complete input into an AST.
+    pub fn parse_stmnts(mut self) -> ParserResult<AST<'input>> {
         let mut statements = Vec::new();
         self.skip_separators()?;
 
         while self.tokens.peek().is_some() {
-            statements.push(self.parse_statement()?);
+            statements.push(self.parse_stmnt()?);
             self.skip_separators()?;
         }
 
         Ok(AST { statements })
     }
 
-    fn parse_statement(&mut self) -> ParserResult<Statement<'input>> {
-        if matches!(
-            self.tokens.peek(),
-            Some(Ok(Spanned {
-                value: Token::Id("let"),
-                ..
-            }))
-        ) {
-            self.next_token()?;
-            if matches!(
-                self.tokens.peek(),
-                Some(Ok(Spanned {
-                    value: Token::Colon,
-                    ..
-                }))
-            ) {
-                self.next_token()?;
-                return Ok(Statement::KV(KV {
-                    key: "let",
-                    expr: self.parse_expression(0)?,
-                }));
-            }
-            return self.parse_let();
-        }
-        let expression = self.parse_expression(0)?;
+    /// Parses one statement, either a binding, key-value pair, or expression.
+    fn parse_stmnt(&mut self) -> ParserResult<Statement<'input>> {
+        let first = self.next_token()?;
 
-        if !matches!(
-            self.tokens.peek(),
-            Some(Ok(Spanned {
-                value: Token::Colon,
-                ..
-            }))
-        ) {
+        if matches!(first.value, Token::Id("let")) && !self.next_is(&Token::Colon) {
+            return self.parse_let_stmnt();
+        }
+
+        let expression = self.parse_expr(first, 0)?;
+        if !self.next_is(&Token::Colon) {
             if matches!(
                 self.tokens.peek(),
                 Some(Ok(Spanned { value: token, .. })) if !matches!(token, Token::Sep)
             ) {
                 let token = self.next_token()?;
-                return Err(Self::unexpected(&token, "a separator or ':'"));
+                return Err(Self::err_unexpected(&token, "a separator or ':'"));
             }
             return Ok(Statement::Expr(expression));
         }
 
-        let key = match expression {
-            Expr::Id(Identifier::Simple(key)) | Expr::Str(key) => key,
-            _ => self
-                .input
-                .get(
-                    self.last_expression_span.offset()
-                        ..self.last_expression_span.offset() + self.last_expression_span.len(),
-                )
-                .expect("expression spans must be valid input boundaries"),
+        let (Expr::Id(Identifier::Simple(key)) | Expr::Str(key)) = expression else {
+            return Err(ParserError::InvalidKey {
+                span: self.last_expression_span,
+            });
         };
 
         self.next_token()?;
+        let first = self.next_token()?;
         Ok(Statement::KV(KV {
             key,
-            expr: self.parse_expression(0)?,
+            expr: self.parse_expr(first, 0)?,
         }))
     }
 
-    fn parse_let(&mut self) -> ParserResult<Statement<'input>> {
+    /// Parses a `let` binding statement.
+    fn parse_let_stmnt(&mut self) -> ParserResult<Statement<'input>> {
         let name = match self.next_token()? {
             Spanned {
                 value: Token::Id(value),
                 ..
             } if value != "let" => value,
-            token => return Err(Self::unexpected(&token, "an identifier")),
+            Spanned {
+                value: Token::Id("let"),
+                span,
+            } => return Err(ParserError::ReservedIdentifier { span }),
+            token => return Err(Self::err_unexpected(&token, "an identifier")),
         };
         self.expect_next_token(&Token::Eq)?;
+        let first = self.next_token()?;
         Ok(Statement::Let(Let {
             name,
-            expr: self.parse_expression(0)?,
+            expr: self.parse_expr(first, 0)?,
         }))
     }
+    //endregion Parse statements
 
-    fn parse_expression(&mut self, min_binding_power: u8) -> ParserResult<Expr<'input>> {
-        let start = self
-            .tokens
-            .peek()
-            .and_then(|result| result.as_ref().ok())
-            .map_or(self.last_span, |token| token.span);
-        let expression = self.parse_expression_inner(min_binding_power)?;
-        let end = self.last_span.offset() + self.last_span.len();
-        self.last_expression_span = (start.offset(), end.saturating_sub(start.offset())).into();
-        Ok(expression)
-    }
-
-    fn parse_expression_inner(&mut self, min_binding_power: u8) -> ParserResult<Expr<'input>> {
-        let mut left = self.parse_prefix()?;
+    //region Parse expression
+    /// Parses an expression.
+    fn parse_expr(
+        &mut self,
+        first: Spanned<Token<'input>>,
+        min_bp: u8,
+    ) -> ParserResult<Expr<'input>> {
+        let start = first.span;
+        let mut lhs = self.parse_lhs(first)?;
 
         while let Some(Ok(token)) = self.tokens.peek() {
-            let Some((left_binding_power, right_binding_power, operator)) =
-                Self::infix_binding_power(&token.value)
-            else {
+            let Some((lhs_bp, rhs_bp, op)) = Self::infix_binding_power(&token.value) else {
                 break;
             };
 
-            if left_binding_power < min_binding_power {
+            if lhs_bp < min_bp {
                 break;
             }
 
             self.next_token()?;
-            let right = self.parse_expression(right_binding_power)?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op: operator,
-                right: Box::new(right),
-            };
+            lhs = self.parse_rhs_extension(lhs, rhs_bp, op)?;
         }
 
-        Ok(left)
+        let end = self.last_span.offset() + self.last_span.len();
+        self.last_expression_span = (start.offset(), end.saturating_sub(start.offset())).into();
+        Ok(lhs)
     }
 
-    fn parse_prefix(&mut self) -> ParserResult<Expr<'input>> {
-        let token = self.next_token()?;
-        self.parse_prefix_token(token)
-    }
-
-    fn parse_prefix_token(&mut self, token: Spanned<Token<'input>>) -> ParserResult<Expr<'input>> {
+    /// Parses the left-hand side of an expression.
+    fn parse_lhs(&mut self, token: Spanned<Token<'input>>) -> ParserResult<Expr<'input>> {
         let Spanned { value, .. } = token;
         match value {
-            Token::Bool(value) => self.parse_postfix(Expr::Bool(value)),
-            Token::Int(value) => self.parse_postfix(Expr::Int(value)),
-            Token::Float(value) => self.parse_postfix(Expr::Float(value)),
-            Token::Str(value) => self.parse_postfix(Expr::Str(value)),
+            Token::Bool(value) => self.parse_postfix_op(Expr::Bool(value)),
+            Token::Int(value) => self.parse_postfix_op(Expr::Int(value)),
+            Token::Float(value) => self.parse_postfix_op(Expr::Float(value)),
+            Token::Str(value) => self.parse_postfix_op(Expr::Str(value)),
             Token::LBracket => self.parse_list(),
             Token::LBrace => self.parse_map(),
-            Token::Id(value) => self.parse_postfix(Expr::Id(Identifier::Simple(value))),
+            Token::Id("if") if self.next_is(&Token::LParen) => self.parse_if(),
+            Token::Id(value) => self.parse_postfix_op(Expr::Id(Identifier::Simple(value))),
             Token::LParen => {
-                let expression = self.parse_expression(0)?;
+                let first = self.next_token()?;
+                let expression = self.parse_expr(first, 0)?;
                 self.expect_next_token(&Token::RParen)?;
-                self.parse_postfix(expression)
+                self.parse_postfix_op(expression)
             }
-            Token::Add => self.parse_unary(UnaryOp::Positive),
-            Token::Sub => self.parse_unary(UnaryOp::Negative),
-            token => Err(Self::unexpected(
+            Token::Add => self.parse_prefix_op(PrefixOp::Positive),
+            Token::Sub => self.parse_prefix_op(PrefixOp::Negative),
+            token => Err(Self::err_unexpected(
                 &Spanned {
                     value: token,
                     span: self.last_span,
@@ -191,17 +159,34 @@ impl<'input> Parser<'input> {
         }
     }
 
-    fn parse_unary(&mut self, operator: UnaryOp) -> ParserResult<Expr<'input>> {
-        let value = self.parse_expression(25)?;
+    fn parse_rhs_extension(
+        &mut self,
+        lhs: Expr<'input>,
+        rhs_bp: u8,
+        op: InfixOp,
+    ) -> ParserResult<Expr<'input>> {
+        let first = self.next_token()?;
+        let right = self.parse_expr(first, rhs_bp)?;
+        Ok(Expr::Binary {
+            left: Box::new(lhs),
+            op,
+            right: Box::new(right),
+        })
+    }
+
+    /// Parses a prefix operator and its operand.
+    fn parse_prefix_op(&mut self, op: PrefixOp) -> ParserResult<Expr<'input>> {
+        let first = self.next_token()?;
+        let value = self.parse_expr(first, 25)?;
         Ok(Expr::Unary {
-            op: operator,
+            op,
             value: Box::new(value),
         })
     }
 
-    fn parse_postfix(&mut self, mut expression: Expr<'input>) -> ParserResult<Expr<'input>> {
+    fn parse_postfix_op(&mut self, mut expr: Expr<'input>) -> ParserResult<Expr<'input>> {
         loop {
-            expression = match self.tokens.peek() {
+            expr = match self.tokens.peek() {
                 Some(Ok(Spanned {
                     value: Token::Dot, ..
                 })) => {
@@ -212,23 +197,24 @@ impl<'input> Parser<'input> {
                             ..
                         } => value,
                         token => {
-                            return Err(Self::unexpected(&token, "an identifier"));
+                            return Err(Self::err_unexpected(&token, "an identifier"));
                         }
                     };
                     Expr::Access {
-                        object: Box::new(expression),
+                        object: Box::new(expr),
                         name,
                     }
                 }
                 Some(Ok(Spanned {
                     value: Token::LParen,
                     ..
-                })) => self.parse_call(expression)?,
-                _ => return Ok(expression),
+                })) => self.parse_call(expr)?,
+                _ => return Ok(expr),
             };
         }
     }
 
+    /// Parses a function call and its arguments.
     fn parse_call(&mut self, callee: Expr<'input>) -> ParserResult<Expr<'input>> {
         self.expect_next_token(&Token::LParen)?;
         let mut arguments = Vec::new();
@@ -242,7 +228,8 @@ impl<'input> Parser<'input> {
             }))
         ) {
             loop {
-                arguments.push(self.parse_expression(0)?);
+                let first = self.next_token()?;
+                arguments.push(self.parse_expr(first, 0)?);
 
                 if matches!(
                     self.tokens.peek(),
@@ -276,6 +263,7 @@ impl<'input> Parser<'input> {
         })
     }
 
+    /// Parses a list literal and its elements.
     fn parse_list(&mut self) -> ParserResult<Expr<'input>> {
         let mut values = Vec::new();
         self.skip_separators()?;
@@ -288,7 +276,8 @@ impl<'input> Parser<'input> {
             }))
         ) {
             loop {
-                values.push(self.parse_expression(0)?);
+                let first = self.next_token()?;
+                values.push(self.parse_expr(first, 0)?);
 
                 if matches!(
                     self.tokens.peek(),
@@ -316,9 +305,10 @@ impl<'input> Parser<'input> {
         }
 
         self.expect_next_token(&Token::RBracket)?;
-        self.parse_postfix(Expr::List(values))
+        self.parse_postfix_op(Expr::List(values))
     }
 
+    /// Parses a map literal and its entries.
     fn parse_map(&mut self) -> ParserResult<Expr<'input>> {
         let mut entries = Vec::new();
         self.skip_separators()?;
@@ -336,10 +326,11 @@ impl<'input> Parser<'input> {
                         value: Token::Id(value) | Token::Str(value),
                         ..
                     } => value,
-                    token => return Err(Self::unexpected(&token, "a map key")),
+                    token => return Err(Self::err_unexpected(&token, "a map key")),
                 };
                 self.expect_next_token(&Token::Colon)?;
-                let expr = self.parse_expression(0)?;
+                let first = self.next_token()?;
+                let expr = self.parse_expr(first, 0)?;
                 entries.push(KV { key, expr });
 
                 if matches!(
@@ -368,17 +359,54 @@ impl<'input> Parser<'input> {
         }
 
         self.expect_next_token(&Token::RBrace)?;
-        self.parse_postfix(Expr::Map(entries))
+        self.parse_postfix_op(Expr::Map(entries))
     }
 
-    const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, BinaryOp)> {
+    /// Parses a conditional expression with `then` and `else` branches.
+    fn parse_if(&mut self) -> ParserResult<Expr<'input>> {
+        self.expect_next_token(&Token::LParen)?;
+        let first = self.next_token()?;
+        let condition = self.parse_expr(first, 0)?;
+        self.expect_next_token(&Token::RParen)?;
+        self.expect_next_token(&Token::LBrace)?;
+        self.skip_separators()?;
+        let first = self.next_token()?;
+        let then_branch = self.parse_expr(first, 0)?;
+        self.skip_separators()?;
+        self.expect_next_token(&Token::RBrace)?;
+        match self.next_token()? {
+            Spanned {
+                value: Token::Id("else"),
+                ..
+            } => {}
+            token => return Err(Self::err_unexpected(&token, "`else`")),
+        }
+        self.expect_next_token(&Token::LBrace)?;
+        self.skip_separators()?;
+        let first = self.next_token()?;
+        let else_branch = self.parse_expr(first, 0)?;
+        self.skip_separators()?;
+        self.expect_next_token(&Token::RBrace)?;
+        self.parse_postfix_op(Expr::If {
+            condition: Box::new(condition),
+            then_branch: Box::new(then_branch),
+            else_branch: Box::new(else_branch),
+        })
+    }
+    //endregion Parse expression
+
+    fn next_is(&mut self, expected: &Token<'input>) -> bool {
+        matches!(self.tokens.peek(), Some(Ok(token)) if &token.value == expected)
+    }
+
+    const fn infix_binding_power(token: &Token<'input>) -> Option<(u8, u8, InfixOp)> {
         match token {
-            Token::Add => Some((10, 11, BinaryOp::Add)),
-            Token::Sub => Some((10, 11, BinaryOp::Sub)),
-            Token::Mul => Some((20, 21, BinaryOp::Mul)),
-            Token::Div => Some((20, 21, BinaryOp::Div)),
-            Token::Exp => Some((30, 30, BinaryOp::Exp)),
-            Token::Equal => Some((5, 6, BinaryOp::Equal)),
+            Token::Add => Some((10, 11, InfixOp::Add)),
+            Token::Sub => Some((10, 11, InfixOp::Sub)),
+            Token::Mul => Some((20, 21, InfixOp::Mul)),
+            Token::Div => Some((20, 21, InfixOp::Div)),
+            Token::Exp => Some((30, 30, InfixOp::Exp)),
+            Token::Equal => Some((5, 6, InfixOp::Equal)),
             _ => None,
         }
     }
@@ -401,7 +429,7 @@ impl<'input> Parser<'input> {
         if token.value == *expected {
             Ok(())
         } else {
-            Err(Self::unexpected(&token, &format!("{expected:?}")))
+            Err(Self::err_unexpected(&token, &format!("{expected:?}")))
         }
     }
 
@@ -418,7 +446,7 @@ impl<'input> Parser<'input> {
         Ok(token)
     }
 
-    fn unexpected(token: &Spanned<Token<'input>>, expected: &str) -> ParserError {
+    fn err_unexpected(token: &Spanned<Token<'input>>, expected: &str) -> ParserError {
         ParserError::UnexpectedToken {
             expected: expected.to_owned(),
             found: format!("{:?}", token.value),
@@ -453,6 +481,20 @@ pub enum ParserError {
         #[label("expected {expected}, got {found} instead")]
         span: miette::SourceSpan,
     },
+
+    #[error("reserved identifier")]
+    #[diagnostic(code(parser::reserved_identifier))]
+    ReservedIdentifier {
+        #[label("`let` is not allowed as a binding name")]
+        span: miette::SourceSpan,
+    },
+
+    #[error("invalid key")]
+    #[diagnostic(code(parser::invalid_key))]
+    InvalidKey {
+        #[label("keys must be identifiers or strings")]
+        span: miette::SourceSpan,
+    },
 }
 //endregion ParserResult
 
@@ -473,6 +515,7 @@ mod tests {
                   \"key with spaces\": 3",
             ),
             ("expression statements", "1 + 2 * 3"),
+            ("string expression", "\"hello\""),
             (
                 "math expressions",
                 "sum: 1 + 2
@@ -494,13 +537,35 @@ mod tests {
                  )",
             ),
             (
+                "expression continuation after let binding",
+                "let x = 1
+                  x + 1",
+            ),
+            ("conditional expression", "if (true) { 1 } else { 2 }"),
+            ("member call expression", "x.foo()"),
+            (
                 "import expressions",
                 "let std = import(\"std\")
                  std.math.sin(0)",
             ),
-            ("keyword as top-level key", "let: value"),
-            ("keyword as map key", "{let: 1}"),
-            ("expression-shaped top-level key", "not_a_string(): 2"),
+            (
+                "keywords as top-level key",
+                "let: 1
+                 if: 2
+                 else: 3",
+            ),
+            (
+                "keywords as map key",
+                "{
+                    let: 1
+                    if: 2
+                    else: 3
+                }",
+            ),
+            (
+                "quoted expression-shaped top-level key",
+                "\"not_a_string()\": 2",
+            ),
             ("let binding with map", "let value = { nested: 7 }"),
             (
                 "let binding followed by a document field",
@@ -511,7 +576,7 @@ mod tests {
 
         let cases = fmt_snapshot_cases(cases, |(label, input)| {
             let input = dedent(input);
-            let document = Parser::new(&input).parse().expect("valid document");
+            let document = Parser::new(&input).parse_stmnts().expect("valid document");
             let input = input.replace('\n', "\n        ");
             let ast = document.pretty_string();
             format!("{label}\ninput: `{input}`\nast: {ast}")
@@ -522,11 +587,19 @@ mod tests {
 
     #[test]
     fn expect_errors() {
-        let cases = [("adjacent top-level tokens", "key key")];
+        let cases = [
+            ("adjacent top-level tokens", "key key"),
+            ("arithmetic expression as key", "1 + 1: 1"),
+            ("call expression as key", "x(): 1"),
+            ("member expression as key", "x.foo(): 1"),
+            ("multi-word unquoted key", "let there be rain: 1"),
+            ("reserved identifier", "let let = 1"),
+            ("non-identifier binding name", "let 1 = 1"),
+        ];
 
         let cases = fmt_snapshot_cases(cases, |(label, input)| {
             let error = Parser::new(input)
-                .parse()
+                .parse_stmnts()
                 .expect_err("expected a parser error");
             let error = error.to_string();
             fmt_snapshot_case(label, &[("input", input), ("error", &error)])
@@ -555,12 +628,13 @@ mod tests {
                   value: )
                  after: 3",
             ),
+            ("reserved identifier", "let let = 1"),
         ];
 
         let cases = fmt_snapshot_cases(cases, |(label, input)| {
             let input = &dedent(input);
             let error = Parser::new(input)
-                .parse()
+                .parse_stmnts()
                 .expect_err("expected a parser error");
             fmt_diagnostic_case(label, input, error)
         });

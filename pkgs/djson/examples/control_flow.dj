@@ -1,0 +1,21 @@
+#!/usr/bin/env djson
+
+// Conditional expressions require a boolean condition.
+let enabled = true
+let disabled = false
+
+direct_true: if (enabled) { "enabled" } else { "disabled" }
+direct_false: if (disabled) { "enabled" } else { "disabled" }
+
+// Conditions can be computed from expressions.
+comparison: if (3 == 3) { "equal" } else { "different" }
+
+// Branches can contain nested conditional expressions.
+nested: if (enabled) {
+	if (disabled) { "unexpected" } else { "nested fallback" }
+} else {
+	"outer fallback"
+}
+
+// Only the selected branch is evaluated.
+lazy: if (enabled) { "safe branch" } else { missing }

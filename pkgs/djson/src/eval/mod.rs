@@ -13,7 +13,7 @@ pub use scope::Scope;
 
 use crate::{
     eval::document::map::Map,
-    parser::ast::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp},
+    parser::ast::{AST, Expr, Identifier, InfixOp, PrefixOp, Statement},
 };
 
 /// Evaluates a parsed document into `scope`.
@@ -97,6 +97,20 @@ fn evaluate_expr(node: &Expr<'_>, scope: &Scope) -> Result<Value, EvalError> {
             evaluate_expr(right, scope)?,
         ),
         Expr::Call { callee, arguments } => evaluate_call(callee, arguments, scope),
+        Expr::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
+            let Value::Bool(condition) = evaluate_expr(condition, scope)? else {
+                return Err(EvalError::TypeMismatch);
+            };
+            if condition {
+                evaluate_expr(then_branch, scope)
+            } else {
+                evaluate_expr(else_branch, scope)
+            }
+        }
     }
 }
 
@@ -187,52 +201,52 @@ fn evaluate_call(
     function(&arguments)
 }
 
-fn evaluate_unary(operator: &UnaryOp, value: Value) -> Result<Value, EvalError> {
+fn evaluate_unary(operator: &PrefixOp, value: Value) -> Result<Value, EvalError> {
     match (operator, value) {
-        (UnaryOp::Positive, value @ (Value::Int(_) | Value::Float(_))) => Ok(value),
-        (UnaryOp::Negative, Value::Int(value)) => value
+        (PrefixOp::Positive, value @ (Value::Int(_) | Value::Float(_))) => Ok(value),
+        (PrefixOp::Negative, Value::Int(value)) => value
             .checked_neg()
             .map(Value::Int)
             .ok_or(EvalError::Overflow),
-        (UnaryOp::Negative, Value::Float(value)) => Ok(Value::Float(-value)),
-        (UnaryOp::Positive | UnaryOp::Negative, _) => Err(EvalError::TypeMismatch),
+        (PrefixOp::Negative, Value::Float(value)) => Ok(Value::Float(-value)),
+        (PrefixOp::Positive | PrefixOp::Negative, _) => Err(EvalError::TypeMismatch),
     }
 }
 
-fn evaluate_binary(op: &BinaryOp, left: Value, right: Value) -> Result<Value, EvalError> {
+fn evaluate_binary(op: &InfixOp, left: Value, right: Value) -> Result<Value, EvalError> {
     match (op, left, right) {
-        (BinaryOp::Add, Value::Int(left), Value::Int(right)) => left
+        (InfixOp::Add, Value::Int(left), Value::Int(right)) => left
             .checked_add(right)
             .map(Value::Int)
             .ok_or(EvalError::Overflow),
-        (BinaryOp::Sub, Value::Int(left), Value::Int(right)) => left
+        (InfixOp::Sub, Value::Int(left), Value::Int(right)) => left
             .checked_sub(right)
             .map(Value::Int)
             .ok_or(EvalError::Overflow),
-        (BinaryOp::Mul, Value::Int(left), Value::Int(right)) => left
+        (InfixOp::Mul, Value::Int(left), Value::Int(right)) => left
             .checked_mul(right)
             .map(Value::Int)
             .ok_or(EvalError::Overflow),
-        (BinaryOp::Div, Value::Int(_), Value::Int(0))
-        | (BinaryOp::Div, Value::Float(_), Value::Float(0.0)) => Err(EvalError::DivisionByZero),
-        (BinaryOp::Div, Value::Int(left), Value::Int(right)) => left
+        (InfixOp::Div, Value::Int(_), Value::Int(0))
+        | (InfixOp::Div, Value::Float(_), Value::Float(0.0)) => Err(EvalError::DivisionByZero),
+        (InfixOp::Div, Value::Int(left), Value::Int(right)) => left
             .checked_div(right)
             .map(Value::Int)
             .ok_or(EvalError::Overflow),
-        (BinaryOp::Exp, Value::Int(left), Value::Int(right)) if right >= 0 => {
+        (InfixOp::Exp, Value::Int(left), Value::Int(right)) if right >= 0 => {
             let exponent = u32::try_from(right).map_err(|_| EvalError::Overflow)?;
             left.checked_pow(exponent)
                 .map(Value::Int)
                 .ok_or(EvalError::Overflow)
         }
-        (BinaryOp::Add, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
-        (BinaryOp::Sub, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
-        (BinaryOp::Mul, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
-        (BinaryOp::Div, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
-        (BinaryOp::Exp, Value::Float(left), Value::Float(right)) => {
+        (InfixOp::Add, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
+        (InfixOp::Sub, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
+        (InfixOp::Mul, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
+        (InfixOp::Div, Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
+        (InfixOp::Exp, Value::Float(left), Value::Float(right)) => {
             Ok(Value::Float(left.powf(right)))
         }
-        (BinaryOp::Equal, left, right)
+        (InfixOp::Equal, left, right)
             if matches!(
                 (&left, &right),
                 (
@@ -274,7 +288,7 @@ mod tests {
     use crate::{map, parser::Parser, value};
 
     fn evaluate(input: &str) -> Result<Value, EvalError> {
-        let ast = Parser::new(input).parse().expect("valid input");
+        let ast = Parser::new(input).parse_stmnts().expect("valid input");
         let mut scope = Scope::child(stdlib::new());
         evaluate_ast(&ast, &mut scope)
     }
@@ -356,6 +370,16 @@ mod tests {
         assert_eq!(evaluate("1 + 2 * 3"), Ok(value!(7)));
         assert_eq!(evaluate("count: 3"), Ok(Value::Map(map! { count: 3 })));
         assert_eq!(evaluate("[1, 2 * 3, [4, 5]]"), Ok(value!([1, 6, [4, 5]])));
+    }
+
+    #[test]
+    fn evaluates_if_else_expressions_lazily() {
+        assert_eq!(evaluate("if (true) { 1 } else { missing }"), Ok(value!(1)));
+        assert_eq!(evaluate("if (false) { missing } else { 2 }"), Ok(value!(2)));
+        assert_eq!(
+            evaluate("if (1) { 1 } else { 2 }"),
+            Err(EvalError::TypeMismatch)
+        );
     }
 
     #[test]

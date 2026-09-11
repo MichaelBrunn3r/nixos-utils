@@ -184,7 +184,9 @@ pub(super) enum InputError {
 }
 
 fn evaluate_line(line: &str, scope: &mut Scope) -> Result<Option<Value>, InputError> {
-    let ast = Parser::new(line).parse().map_err(InputError::Parse)?;
+    let ast = Parser::new(line)
+        .parse_stmnts()
+        .map_err(InputError::Parse)?;
     if ast.statements.len() != 1 {
         return Err(InputError::MultipleStatements);
     }

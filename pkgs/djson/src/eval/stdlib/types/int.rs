@@ -100,7 +100,7 @@ mod tests {
     };
 
     fn evaluate(input: &str) -> Result<Value, EvalError> {
-        let ast = Parser::new(input).parse().expect("valid input");
+        let ast = Parser::new(input).parse_stmnts().expect("valid input");
         let mut scope = Scope::child(stdlib::new());
         evaluate_ast(&ast, &mut scope)
     }

@@ -12,6 +12,10 @@ expression statements
 input: `1 + 2 * 3`
 ast: [Expr(Add(1, Mul(2, 3)))]
 
+string expression
+input: `"hello"`
+ast: [Expr("hello")]
+
 math expressions
 input: `sum: 1 + 2
         difference: 5 - 2
@@ -41,6 +45,19 @@ input: `inline: foo(1, 2,3)
         )`
 ast: [inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])]
 
+expression continuation after let binding
+input: `let x = 1
+        x + 1`
+ast: [let x = 1, Expr(Add(x, 1))]
+
+conditional expression
+input: `if (true) { 1 } else { 2 }`
+ast: [Expr(If(true, 1, 2))]
+
+member call expression
+input: `x.foo()`
+ast: [Expr(Call(Access(x, foo), []))]
+
 import expressions
 input: `let std = import("std")
         std.math.sin(0)`
@@ -49,16 +66,22 @@ ast: [
     Expr(Call(Access(Access(std, math), sin), [0]))
 ]
 
-keyword as top-level key
-input: `let: value`
-ast: [let: value]
+keywords as top-level key
+input: `let: 1
+        if: 2
+        else: 3`
+ast: [let: 1, if: 2, else: 3]
 
-keyword as map key
-input: `{let: 1}`
-ast: [Expr({let: 1})]
+keywords as map key
+input: `{
+            let: 1
+            if: 2
+            else: 3
+        }`
+ast: [Expr({let: 1, if: 2, else: 3})]
 
-expression-shaped top-level key
-input: `not_a_string(): 2`
+quoted expression-shaped top-level key
+input: `"not_a_string()": 2`
 ast: ["not_a_string()": 2]
 
 let binding with map

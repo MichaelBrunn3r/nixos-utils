@@ -47,7 +47,7 @@ pub fn run() -> Result<(), Report> {
     };
     let source = NamedSource::new(source_name, input.clone());
     let ast = Parser::new(&input)
-        .parse()
+        .parse_stmnts()
         .map_err(|error| Report::new(error).with_source_code(source.clone()))?;
     let mut scope = Scope::child(stdlib::prelude());
     let value = evaluate_ast(&ast, &mut scope)

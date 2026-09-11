@@ -31,13 +31,13 @@ pub enum Identifier<'input> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum UnaryOp {
+pub enum PrefixOp {
     Positive,
     Negative,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum BinaryOp {
+pub enum InfixOp {
     Add,
     Sub,
     Mul,
@@ -60,16 +60,21 @@ pub enum Expr<'input> {
         name: &'input str,
     },
     Unary {
-        op: UnaryOp,
+        op: PrefixOp,
         value: Box<Self>,
     },
     Binary {
         left: Box<Self>,
-        op: BinaryOp,
+        op: InfixOp,
         right: Box<Self>,
     },
     Call {
         callee: Box<Self>,
         arguments: Vec<Self>,
+    },
+    If {
+        condition: Box<Self>,
+        then_branch: Box<Self>,
+        else_branch: Box<Self>,
     },
 }

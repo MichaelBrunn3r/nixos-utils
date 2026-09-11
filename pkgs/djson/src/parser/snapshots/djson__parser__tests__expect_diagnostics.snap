@@ -36,3 +36,13 @@ error: `parser::unexpected_token
            :         `-- expected expression, got RParen instead
          3 | after: 3
            `----`
+
+reserved identifier
+error: `parser::reserved_identifier
+        
+          x reserved identifier
+           ,-[input.dj:1:5]
+         1 | let let = 1
+           :     ^|^
+           :      `-- `let` is not allowed as a binding name
+           `----`

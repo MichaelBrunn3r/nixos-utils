@@ -1,6 +1,6 @@
 use std::fmt::{self, Write};
 
-use super::{AST, BinaryOp, Expr, Identifier, Statement, UnaryOp};
+use super::{AST, Expr, Identifier, InfixOp, PrefixOp, Statement};
 
 pub struct ASTPretty<'ast, 'config, 'input> {
     ast: &'ast AST<'input>,
@@ -102,8 +102,8 @@ impl Expr<'_> {
             Self::Id(identifier) => identifier_document(identifier),
             Self::Unary { op, value } => {
                 let operator = match op {
-                    UnaryOp::Positive => "Positive",
-                    UnaryOp::Negative => "Negative",
+                    PrefixOp::Positive => "Positive",
+                    PrefixOp::Negative => "Negative",
                 };
                 concat([
                     text(format!("{operator}(")),
@@ -113,12 +113,12 @@ impl Expr<'_> {
             }
             Self::Binary { left, op, right } => {
                 let operator = match op {
-                    BinaryOp::Add => "Add",
-                    BinaryOp::Sub => "Sub",
-                    BinaryOp::Mul => "Mul",
-                    BinaryOp::Div => "Div",
-                    BinaryOp::Exp => "Exp",
-                    BinaryOp::Equal => "Equal",
+                    InfixOp::Add => "Add",
+                    InfixOp::Sub => "Sub",
+                    InfixOp::Mul => "Mul",
+                    InfixOp::Div => "Div",
+                    InfixOp::Exp => "Exp",
+                    InfixOp::Equal => "Equal",
                 };
                 concat([
                     text(format!("{operator}(")),
@@ -149,6 +149,19 @@ impl Expr<'_> {
                     text("])"),
                 ]))
             }
+            Self::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => concat([
+                text("If("),
+                condition.pretty_doc(config),
+                text(", "),
+                then_branch.pretty_doc(config),
+                text(", "),
+                else_branch.pretty_doc(config),
+                text(")"),
+            ]),
         }
     }
 }
