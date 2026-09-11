@@ -1,14 +1,20 @@
 {
+    "$schema": "https://raw.githubusercontent.com/denoland/deno/main/cli/schemas/config-file.v1.json",
     "nodeModulesDir": "auto",
     "imports": {
         "vscode-oniguruma": "npm:vscode-oniguruma",
         "vscode-textmate": "npm:vscode-textmate"
     },
+    "fmt": {
+        "lineWidth": 100,
+        "indentWidth": 4
+    },
     "tasks": {
         "build": "deno run --allow-write=syntaxes build.ts",
         "check": "deno check build.ts src/grammar.ts tests/grammar_test.ts",
-        "fmt": "deno fmt build.ts src/grammar.ts tests/grammar_test.ts",
+        "fmt": "deno fmt",
         "lint": "deno lint",
-        "test": "deno task build && deno test --allow-env=VSCODE_TEXTMATE_DEBUG --allow-read=node_modules tests/grammar_test.ts"
+        "test": "deno task build && deno test --allow-env=VSCODE_TEXTMATE_DEBUG --allow-read=node_modules tests/grammar_test.ts",
+        "verify": "deno fmt --check && deno lint && deno task check && deno task test"
     }
 }

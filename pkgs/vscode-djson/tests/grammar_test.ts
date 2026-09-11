@@ -38,9 +38,9 @@ function tokenize(document: string): string[][] {
         return lineTokens.map((
             token,
         ) => [
-                line.slice(token.startIndex, token.endIndex),
-                token.scopes.join(" "),
-            ]);
+            line.slice(token.startIndex, token.endIndex),
+            token.scopes.join(" "),
+        ]);
     });
 }
 
@@ -54,42 +54,50 @@ const cases: [string, string, string[][]][] = [
         [":", "punctuation.separator.key-value"],
         ["x", "variable.other"],
     ]],
-    ["integers support signs, leading zeros, and digit separators", "0 00000 000001 123 1_000 1'000 -1 -1_000 -1'000", [
-        ["0", "constant.numeric"],
-        ["00000", "constant.numeric"],
-        ["000001", "constant.numeric"],
-        ["123", "constant.numeric"],
-        ["1_000", "constant.numeric"],
-        ["1'000", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1_000", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1'000", "constant.numeric"],
-    ]],
-    ["floats support signs, leading zeros, and digit separators", "0.0 00000.1 00000.00001 123.456 1_000.0 1'000.0 1.0_5 1.0'5 -1.0 -1_000.0 -1'000.0", [
-        ["0.0", "constant.numeric"],
-        ["00000.1", "constant.numeric"],
-        ["00000.00001", "constant.numeric"],
-        ["123.456", "constant.numeric"],
-        ["1_000.0", "constant.numeric"],
-        ["1'000.0", "constant.numeric"],
-        ["1.0_5", "constant.numeric"],
-        ["1.0'5", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1.0", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1_000.0", "constant.numeric"],
-        ["-", "keyword.operator"],
-        ["1'000.0", "constant.numeric"],
-    ]],
+    [
+        "integers support signs, leading zeros, and digit separators",
+        "0 00000 000001 123 1_000 1'000 -1 -1_000 -1'000",
+        [
+            ["0", "constant.numeric"],
+            ["00000", "constant.numeric"],
+            ["000001", "constant.numeric"],
+            ["123", "constant.numeric"],
+            ["1_000", "constant.numeric"],
+            ["1'000", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1_000", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1'000", "constant.numeric"],
+        ],
+    ],
+    [
+        "floats support signs, leading zeros, and digit separators",
+        "0.0 00000.1 00000.00001 123.456 1_000.0 1'000.0 1.0_5 1.0'5 -1.0 -1_000.0 -1'000.0",
+        [
+            ["0.0", "constant.numeric"],
+            ["00000.1", "constant.numeric"],
+            ["00000.00001", "constant.numeric"],
+            ["123.456", "constant.numeric"],
+            ["1_000.0", "constant.numeric"],
+            ["1'000.0", "constant.numeric"],
+            ["1.0_5", "constant.numeric"],
+            ["1.0'5", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1.0", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1_000.0", "constant.numeric"],
+            ["-", "keyword.operator"],
+            ["1'000.0", "constant.numeric"],
+        ],
+    ],
     ["none aliases are recognized", "none null nil", [
         ["none", "constant.language.null"],
         ["null", "constant.language.null"],
         ["nil", "constant.language.null"],
     ]],
-    ["quoted string delimiters are separate tokens", '"hello" \'world\'', [
+    ["quoted string delimiters are separate tokens", "\"hello\" 'world'", [
         ['"', "string.quoted.double punctuation.definition.string.begin"],
         ["hello", "string.quoted.double"],
         ['"', "string.quoted.double punctuation.definition.string.end"],
@@ -100,37 +108,68 @@ const cases: [string, string, string[][]][] = [
     ["quote escapes scope only their backslashes", String.raw`"a\"b" 'c\'d'`, [
         ['"', "string.quoted.double punctuation.definition.string.begin"],
         ["a", "string.quoted.double"],
-        ["\\", "string.quoted.double constant.character.escape punctuation.definition.character.escape"],
+        [
+            "\\",
+            "string.quoted.double constant.character.escape punctuation.definition.character.escape",
+        ],
         ['"', "string.quoted.double constant.character.escape"],
         ["b", "string.quoted.double"],
         ['"', "string.quoted.double punctuation.definition.string.end"],
         ["'", "string.quoted.single punctuation.definition.string.begin"],
         ["c", "string.quoted.single"],
-        ["\\", "string.quoted.single constant.character.escape punctuation.definition.character.escape"],
+        [
+            "\\",
+            "string.quoted.single constant.character.escape punctuation.definition.character.escape",
+        ],
         ["'", "string.quoted.single constant.character.escape"],
         ["d", "string.quoted.single"],
         ["'", "string.quoted.single punctuation.definition.string.end"],
     ]],
-    ["whitespace escapes stay whole and backslashes split", String.raw`"whitespace\t\n\r" "\\x"`, [
-        ['"', "string.quoted.double punctuation.definition.string.begin"],
-        ["whitespace", "string.quoted.double"],
-        [String.raw`\t`, "string.quoted.double constant.character.escape constant.character.whitespace"],
-        [String.raw`\n`, "string.quoted.double constant.character.escape constant.character.whitespace"],
-        [String.raw`\r`, "string.quoted.double constant.character.escape constant.character.whitespace"],
-        ['"', "string.quoted.double punctuation.definition.string.end"],
-        ['"', "string.quoted.double punctuation.definition.string.begin"],
-        ["\\", "string.quoted.double constant.character.escape punctuation.definition.character.escape"],
-        ["\\", "string.quoted.double constant.character.escape"],
-        ["x", "string.quoted.double"],
-        ['"', "string.quoted.double punctuation.definition.string.end"],
-    ]],
+    [
+        "whitespace escapes stay whole and backslashes split",
+        String.raw`"whitespace\t\n\r" "\\x"`,
+        [
+            ['"', "string.quoted.double punctuation.definition.string.begin"],
+            ["whitespace", "string.quoted.double"],
+            [
+                String.raw`\t`,
+                "string.quoted.double constant.character.escape constant.character.whitespace",
+            ],
+            [
+                String.raw`\n`,
+                "string.quoted.double constant.character.escape constant.character.whitespace",
+            ],
+            [
+                String.raw`\r`,
+                "string.quoted.double constant.character.escape constant.character.whitespace",
+            ],
+            ['"', "string.quoted.double punctuation.definition.string.end"],
+            ['"', "string.quoted.double punctuation.definition.string.begin"],
+            [
+                "\\",
+                "string.quoted.double constant.character.escape punctuation.definition.character.escape",
+            ],
+            ["\\", "string.quoted.double constant.character.escape"],
+            ["x", "string.quoted.double"],
+            ['"', "string.quoted.double punctuation.definition.string.end"],
+        ],
+    ],
     ["backslashes alternate escape punctuation", `"${"\\".repeat(6)}"`, [
         ['"', "string.quoted.double punctuation.definition.string.begin"],
-        ["\\", "string.quoted.double constant.character.escape punctuation.definition.character.escape"],
+        [
+            "\\",
+            "string.quoted.double constant.character.escape punctuation.definition.character.escape",
+        ],
         ["\\", "string.quoted.double constant.character.escape"],
-        ["\\", "string.quoted.double constant.character.escape punctuation.definition.character.escape"],
+        [
+            "\\",
+            "string.quoted.double constant.character.escape punctuation.definition.character.escape",
+        ],
         ["\\", "string.quoted.double constant.character.escape"],
-        ["\\", "string.quoted.double constant.character.escape punctuation.definition.character.escape"],
+        [
+            "\\",
+            "string.quoted.double constant.character.escape punctuation.definition.character.escape",
+        ],
         ["\\", "string.quoted.double constant.character.escape"],
         ['"', "string.quoted.double punctuation.definition.string.end"],
     ]],
@@ -156,6 +195,25 @@ const cases: [string, string, string[][]][] = [
         ["(", "punctuation.definition.parenthesis.begin"],
         [")", "punctuation.definition.parenthesis.end"],
     ]],
+    [
+        "hash comments cover shebangs and trailing comments",
+        "#!/usr/bin/env djson\nfoo#bar\n1 # trailing",
+        [
+            ["#!/usr/bin/env djson", "comment.line.number-sign"],
+            ["foo", "variable.other"],
+            ["#bar", "comment.line.number-sign"],
+            ["1", "constant.numeric"],
+            ["# trailing", "comment.line.number-sign"],
+        ],
+    ],
+    ["hash inside strings is not a comment", "\"a # b\" 'c # d'", [
+        ['"', "string.quoted.double punctuation.definition.string.begin"],
+        ["a # b", "string.quoted.double"],
+        ['"', "string.quoted.double punctuation.definition.string.end"],
+        ["'", "string.quoted.single punctuation.definition.string.begin"],
+        ["c # d", "string.quoted.single"],
+        ["'", "string.quoted.single punctuation.definition.string.end"],
+    ]],
 ];
 
 for (const [label, document, expected] of cases) {
@@ -167,7 +225,8 @@ for (const [label, document, expected] of cases) {
         ]);
         if (JSON.stringify(actual) !== JSON.stringify(expectedWithRootScope)) {
             throw new Error(
-                `Expected tokens ${JSON.stringify(expectedWithRootScope)}, got ${JSON.stringify(actual)
+                `Expected tokens ${JSON.stringify(expectedWithRootScope)}, got ${
+                    JSON.stringify(actual)
                 }`,
             );
         }
