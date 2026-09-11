@@ -139,7 +139,7 @@ impl<'input> Parser<'input> {
             Token::Str(value) => self.parse_postfix_op(Expr::Str(value)),
             Token::LBracket => self.parse_list(),
             Token::LBrace => self.parse_map(),
-            Token::Id("if") if self.next_is(&Token::LParen) => self.parse_if(),
+            Token::Id("if") if !self.next_is(&Token::Colon) => self.parse_if(),
             Token::Id(value) => self.parse_postfix_op(Expr::Id(Identifier::Simple(value))),
             Token::LParen => {
                 let first = self.next_token()?;
@@ -364,33 +364,55 @@ impl<'input> Parser<'input> {
 
     /// Parses a conditional expression with `then` and `else` branches.
     fn parse_if(&mut self) -> ParserResult<Expr<'input>> {
-        self.expect_next_token(&Token::LParen)?;
-        let first = self.next_token()?;
-        let condition = self.parse_expr(first, 0)?;
-        self.expect_next_token(&Token::RParen)?;
-        self.expect_next_token(&Token::LBrace)?;
-        self.skip_separators()?;
-        let first = self.next_token()?;
-        let then_branch = self.parse_expr(first, 0)?;
-        self.skip_separators()?;
-        self.expect_next_token(&Token::RBrace)?;
-        match self.next_token()? {
-            Spanned {
-                value: Token::Id("else"),
-                ..
-            } => {}
-            token => return Err(Self::err_unexpected(&token, "`else`")),
-        }
-        self.expect_next_token(&Token::LBrace)?;
-        self.skip_separators()?;
-        let first = self.next_token()?;
-        let else_branch = self.parse_expr(first, 0)?;
-        self.skip_separators()?;
-        self.expect_next_token(&Token::RBrace)?;
+        let condition = {
+            let first = self.next_token()?;
+            let expr = self.parse_expr(first, 0)?;
+            expr
+        };
+
+        let then = {
+            // Skip {
+            self.expect_next_token(&Token::LBrace)?;
+            self.skip_separators()?;
+
+            let first = self.next_token()?;
+            let expr = self.parse_expr(first, 0)?;
+
+            // Skip }
+            self.skip_separators()?;
+            self.expect_next_token(&Token::RBrace)?;
+
+            expr
+        };
+
+        let r#else = {
+            // Skip 'else'
+            match self.next_token()? {
+                Spanned {
+                    value: Token::Id("else"),
+                    ..
+                } => {}
+                token => return Err(Self::err_unexpected(&token, "`else`")),
+            }
+
+            // Skip {
+            self.expect_next_token(&Token::LBrace)?;
+            self.skip_separators()?;
+
+            let first = self.next_token()?;
+            let expr = self.parse_expr(first, 0)?;
+
+            // Skip }
+            self.skip_separators()?;
+            self.expect_next_token(&Token::RBrace)?;
+
+            expr
+        };
+
         self.parse_postfix_op(Expr::If {
             condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
-            else_branch: Box::new(else_branch),
+            then: Box::new(then),
+            r#else: Box::new(r#else),
         })
     }
     //endregion Parse expression
@@ -595,6 +617,7 @@ mod tests {
             ("multi-word unquoted key", "let there be rain: 1"),
             ("reserved identifier", "let let = 1"),
             ("non-identifier binding name", "let 1 = 1"),
+            ("empty expression", "()"),
         ];
 
         let cases = fmt_snapshot_cases(cases, |(label, input)| {

@@ -101,7 +101,7 @@
         },
         {
             "name": "keyword.control",
-            "match": "\\blet\\b(?!\\s*:)"
+            "match": "(?<!-)\\b(?:let|if|else)\\b(?!\\s*:|-)"
         },
         {
             "name": "entity.name.function",
@@ -134,6 +134,14 @@
         {
             "name": "punctuation.definition.parenthesis.end",
             "match": "\\)"
+        },
+        {
+            "name": "punctuation.definition.block.begin",
+            "match": "\\{"
+        },
+        {
+            "name": "punctuation.definition.block.end",
+            "match": "\\}"
         },
         {
             "name": "keyword.operator",

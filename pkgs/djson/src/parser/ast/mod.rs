@@ -74,7 +74,7 @@ pub enum Expr<'input> {
     },
     If {
         condition: Box<Self>,
-        then_branch: Box<Self>,
-        else_branch: Box<Self>,
+        then: Box<Self>,
+        r#else: Box<Self>,
     },
 }

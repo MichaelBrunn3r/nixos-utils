@@ -99,8 +99,8 @@ fn evaluate_expr(node: &Expr<'_>, scope: &Scope) -> Result<Value, EvalError> {
         Expr::Call { callee, arguments } => evaluate_call(callee, arguments, scope),
         Expr::If {
             condition,
-            then_branch,
-            else_branch,
+            then: then_branch,
+            r#else: else_branch,
         } => {
             let Value::Bool(condition) = evaluate_expr(condition, scope)? else {
                 return Err(EvalError::TypeMismatch);
@@ -374,6 +374,9 @@ mod tests {
 
     #[test]
     fn evaluates_if_else_expressions_lazily() {
+        assert_eq!(evaluate("if true { 1 } else { missing }"), Ok(value!(1)));
+        assert_eq!(evaluate("if false { missing } else { 2 }"), Ok(value!(2)));
+        assert_eq!(evaluate("if 1 == 1 { 1 } else { 2 }"), Ok(value!(1)));
         assert_eq!(evaluate("if (true) { 1 } else { missing }"), Ok(value!(1)));
         assert_eq!(evaluate("if (false) { missing } else { 2 }"), Ok(value!(2)));
         assert_eq!(

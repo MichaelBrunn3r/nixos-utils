@@ -151,8 +151,8 @@ impl Expr<'_> {
             }
             Self::If {
                 condition,
-                then_branch,
-                else_branch,
+                then: then_branch,
+                r#else: else_branch,
             } => concat([
                 text("If("),
                 condition.pretty_doc(config),

@@ -77,7 +77,10 @@ const none = {
 } as const;
 
 const keywords = {
-    patterns: [{ name: "keyword.control", match: "\\blet\\b(?!\\s*:)" }],
+    patterns: [{
+        name: "keyword.control",
+        match: "(?<!-)\\b(?:let|if|else)\\b(?!\\s*:|-)",
+    }],
 } as const;
 
 const functions = {
@@ -134,6 +137,8 @@ export const grammar = {
         { name: "punctuation.definition.array.end", match: "\\]" },
         { name: "punctuation.definition.parenthesis.begin", match: "\\(" },
         { name: "punctuation.definition.parenthesis.end", match: "\\)" },
+        { name: "punctuation.definition.block.begin", match: "\\{" },
+        { name: "punctuation.definition.block.end", match: "\\}" },
         ...operators.patterns,
         ...fields.patterns,
         ...variables.patterns,
