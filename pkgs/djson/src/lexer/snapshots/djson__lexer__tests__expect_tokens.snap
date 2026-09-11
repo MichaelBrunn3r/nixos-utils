@@ -42,3 +42,10 @@ input: `1// line comment 2 3 4
                            comment */2
                                  3 /* inline block */ 4`
 tokens: `[Int(1), Sep, Sep, Int(2), Sep, Int(3), Int(4)]`
+
+hash line comments and shebang
+input: `#!/usr/bin/env djson
+                           1 # trailing comment
+                           foo#comment
+                           2 #`
+tokens: `[Sep, Int(1), Sep, Id("foo"), Sep, Int(2)]`

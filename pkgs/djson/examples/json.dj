@@ -1,3 +1,5 @@
+#!/usr/bin/env djson
+
 {
 	"string": "Hello, JSON!",
 	"escaped-string": "line one\nline two\t\"quoted\"\\backslash\\\\\\",

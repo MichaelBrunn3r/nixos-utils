@@ -1,3 +1,5 @@
+#!/usr/bin/env djson
+
 // A complete DJSON document showcasing literals, imports, expressions, and calls.
 
 let std = import("std")

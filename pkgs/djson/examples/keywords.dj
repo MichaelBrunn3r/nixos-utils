@@ -1,2 +1,4 @@
+#!/usr/bin/env djson
+
 let a = 42
 let: a

@@ -57,7 +57,7 @@ impl<'input> Lexer<'input> {
         let mut skipped_over_line = false;
         loop {
             self.skip_while(|character| character.is_whitespace() && character != '\n'); // Skip whitespace
-            if self.starts_with("//") {
+            if self.starts_with("//") || self.starts_with("#") {
                 self.skip_while(|character| character != '\n'); // Skip line comment
                 return Ok(skipped_over_line);
             } else if self.starts_with("/*") {
@@ -238,6 +238,7 @@ impl<'input> Lexer<'input> {
                         | '.'
                         | '"'
                         | '\''
+                        | '#'
                 )
         }) {
             self.eat();
@@ -397,6 +398,13 @@ mod tests {
                    4 5 6
                    comment */2
                          3 /* inline block */ 4",
+            ),
+            (
+                "hash line comments and shebang",
+                "#!/usr/bin/env djson
+                   1 # trailing comment
+                   foo#comment
+                   2 #",
             ),
         ];
 
