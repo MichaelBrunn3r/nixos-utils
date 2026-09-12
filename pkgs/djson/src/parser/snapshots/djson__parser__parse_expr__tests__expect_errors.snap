@@ -1,0 +1,7 @@
+---
+source: pkgs/djson/src/parser/parse_expr.rs
+expression: cases
+---
+empty expression
+input: `()`
+error: `unexpected token`

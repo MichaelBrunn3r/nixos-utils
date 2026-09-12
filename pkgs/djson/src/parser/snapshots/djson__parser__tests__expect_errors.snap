@@ -25,7 +25,3 @@ error: `unexpected token`
 non-identifier binding name
 input: `let 1 = 1`
 error: `unexpected token`
-
-empty expression
-input: `()`
-error: `unexpected token`

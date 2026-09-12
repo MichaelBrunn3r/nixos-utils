@@ -1,0 +1,48 @@
+---
+source: pkgs/djson/src/parser/parse_expr.rs
+expression: cases
+---
+expression statements
+input: `1 + 2 * 3`
+ast: [Expr(Add(1, Mul(2, 3)))]
+
+string expression
+input: `"hello"`
+ast: [Expr("hello")]
+
+math expressions
+input: `sum: 1 + 2
+        difference: 5 - 2
+        product: 2 * 3
+        quotient: 8 / 2
+        precedence: 1 + 2 * 3
+        power: 2 ^ 3 ^ 4
+        positive: +1
+        negative: -2 ^ 2`
+ast: [
+    sum: Add(1, 2),
+    difference: Sub(5, 2),
+    product: Mul(2, 3),
+    quotient: Div(8, 2),
+    precedence: Add(1, Mul(2, 3)),
+    power: Exp(2, Exp(3, 4)),
+    positive: Positive(1),
+    negative: Negative(Exp(2, 2))
+]
+
+function calls
+input: `inline: foo(1, 2,3)
+        multiline: bar(
+           1
+           2,
+           3
+        )`
+ast: [inline: Call(foo, [1, 2, 3]), multiline: Call(bar, [1, 2, 3])]
+
+conditional expression
+input: `if (true) { 1 } else { 2 }`
+ast: [Expr(If(true, 1, 2))]
+
+member call expression
+input: `x.foo()`
+ast: [Expr(Call(Access(x, foo), []))]

@@ -42,22 +42,6 @@ pub enum Identifier<'input> {
     Simple(&'input str),
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum PrefixOp {
-    Positive,
-    Negative,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum InfixOp {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Exp,
-    Equal,
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Expr<'input> {
     Bool(bool),
@@ -89,4 +73,20 @@ pub enum Expr<'input> {
         then: Box<Self>,
         r#else: Box<Self>,
     },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PrefixOp {
+    Positive,
+    Negative,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum InfixOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Exp,
+    Equal,
 }
