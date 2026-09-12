@@ -194,12 +194,13 @@ impl Pattern<'_> {
                 join(
                     patterns.iter().map(|pattern| {
                         if let Some(default) = &pattern.default {
-                            concat([
+                            return concat([
                                 text(pattern.key),
                                 text(" = "),
                                 default.pretty_doc(config),
-                            ])
-                        } else if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
+                            ]);
+                        }
+                        if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
                             text(pattern.key)
                         } else if matches!(&pattern.pattern, Pattern::List { .. }) {
                             concat([text(pattern.key), pattern.pattern.pretty_doc(config)])

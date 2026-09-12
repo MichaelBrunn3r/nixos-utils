@@ -1,0 +1,108 @@
+---
+source: pkgs/djson/src/cli/mod.rs
+expression: "fmt_snapshot_case(\n    \"document\",\n    &[\n        (\"input\", &input),\n        (\"djson\", &djson),\n        (\"json\", &json),\n        (\"yaml\", &yaml),\n        (\"debug\", &debug),\n    ],\n)"
+---
+document
+input: `{
+            none_value: none,
+            bool_value: true,
+            int_value: 42,
+            float_value: 3.14,
+            string_value: "Ada",
+            list_value: [none, false, 7],
+            map_value: { nested: "value", "needs quoting": true },
+            function_value: import("std.assert").assert,
+        }`
+djson: `bool_value: true,
+        float_value: 3.14,
+        function_value: { type: "function" },
+        int_value: 42,
+        list_value: [
+            none,
+            false,
+            7
+        ],
+        map_value: {
+            "needs quoting": true,
+            nested: "value"
+        },
+        none_value: none,
+        string_value: "Ada"`
+json: `{
+          "bool_value": true,
+          "float_value": 3.14,
+          "function_value": {
+            "type": "function"
+          },
+          "int_value": 42,
+          "list_value": [
+            null,
+            false,
+            7
+          ],
+          "map_value": {
+            "needs quoting": true,
+            "nested": "value"
+          },
+          "none_value": null,
+          "string_value": "Ada"
+        }`
+yaml: `bool_value: true
+        float_value: 3.14
+        function_value:
+          type: function
+        int_value: 42
+        list_value:
+        - null
+        - false
+        - 7
+        map_value:
+          needs quoting: true
+          nested: value
+        none_value: null
+        string_value: Ada`
+debug: `Map(
+            Map(
+                {
+                    "bool_value": Bool(
+                        true,
+                    ),
+                    "float_value": Float(
+                        3.14,
+                    ),
+                    "function_value": Function(
+        <function>
+                    ),
+                    "int_value": Int(
+                        42,
+                    ),
+                    "list_value": List(
+                        [
+                            None,
+                            Bool(
+                                false,
+                            ),
+                            Int(
+                                7,
+                            ),
+                        ],
+                    ),
+                    "map_value": Map(
+                        Map(
+                            {
+                                "needs quoting": Bool(
+                                    true,
+                                ),
+                                "nested": Str(
+                                    "value",
+                                ),
+                            },
+                        ),
+                    ),
+                    "none_value": None,
+                    "string_value": Str(
+                        "Ada",
+                    ),
+                },
+            ),
+        )`

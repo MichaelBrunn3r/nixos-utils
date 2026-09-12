@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
+default = ["fmt_json", "fmt_yaml"]
 pretty_ast = []
+fmt_json = ["dep:serde_json"]
+fmt_yaml = ["dep:serde_yaml"]
 
 [[bench]]
 name = "pretty"
@@ -31,6 +34,8 @@ harness = false
 clap.workspace = true
 miette = { version = "7.6.0", features = ["fancy"] }
 reedline = "0.51.0"
+serde_json = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
 thiserror = "2.0.20"
 
 [dev-dependencies]
