@@ -13,7 +13,7 @@ pub use scope::Scope;
 
 use crate::{
     eval::document::map::Map,
-    parser::ast::{AST, Expr, Identifier, InfixOp, PrefixOp, Statement},
+    parser::ast::{AST, Expr, Identifier, InfixOp, Pattern, PrefixOp, Statement},
 };
 
 /// Evaluates a parsed document into `scope`.
@@ -29,7 +29,9 @@ pub fn evaluate_ast(ast: &AST<'_>, scope: &mut Scope) -> Result<Value, EvalError
         let value = match statement {
             Statement::Let(binding) => {
                 let value = evaluate_expr(&binding.expr, scope)?;
-                scope.bind_value(binding.name, value)?;
+                let mut bindings = Vec::new();
+                destructure(&binding.pattern, value, &mut bindings)?;
+                scope.bind_values(bindings)?;
                 continue;
             }
             Statement::Expr(node) => {
@@ -58,6 +60,29 @@ pub fn evaluate_ast(ast: &AST<'_>, scope: &mut Scope) -> Result<Value, EvalError
     }
 
     Ok(expression.unwrap_or(Value::Map(document)))
+}
+
+fn destructure(
+    pattern: &Pattern<'_>,
+    value: Value,
+    bindings: &mut Vec<(String, Value)>,
+) -> Result<(), EvalError> {
+    match pattern {
+        Pattern::Name(name) => bindings.push(((*name).to_owned(), value)),
+        Pattern::Map(patterns) => {
+            let Value::Map(map) = value else {
+                return Err(EvalError::TypeMismatch);
+            };
+            for pattern in patterns {
+                let value = map
+                    .get(pattern.key)
+                    .cloned()
+                    .ok_or_else(|| EvalError::UnknownIdentifier(pattern.key.to_owned()))?;
+                destructure(&pattern.pattern, value, bindings)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn evaluate_expr(node: &Expr<'_>, scope: &Scope) -> Result<Value, EvalError> {
@@ -350,6 +375,62 @@ mod tests {
             Ok(Value::Map(map! { "quoted-key": true }))
         );
         assert_eq!(evaluate("{a: 1,}.a"), Ok(value!(1)));
+    }
+
+    #[test]
+    fn evaluates_destructuring_patterns() {
+        assert_eq!(
+            evaluate(
+                "let {outer.{a, inner.{b}}} = {outer: {a: 1, inner: {b: 2}}}
+                 result: a + b"
+            ),
+            Ok(Value::Map(map! { "result": 3 }))
+        );
+        assert_eq!(
+            evaluate("let {assert} = import(\"std.assert\")\nassert(true)"),
+            Ok(Value::Bool(true))
+        );
+    }
+
+    #[test]
+    fn binds_let_from_a_map_pattern() {
+        let ast = Parser::new("let {let} = {let: 7}")
+            .parse_stmnts()
+            .expect("valid destructuring pattern");
+        let mut scope = Scope::child(stdlib::new());
+
+        assert_eq!(evaluate_ast(&ast, &mut scope), Ok(Value::Map(map! {})));
+        assert_eq!(scope.resolve("let"), Some(Value::Int(7)));
+
+        let ast = Parser::new("let {let.{let}} = {let: {let: 9}}")
+            .parse_stmnts()
+            .expect("valid nested pattern");
+        let mut scope = Scope::child(stdlib::new());
+
+        assert_eq!(evaluate_ast(&ast, &mut scope), Ok(Value::Map(map! {})));
+        assert_eq!(scope.resolve("let"), Some(Value::Int(9)));
+
+        let ast = Parser::new("let let = 8")
+            .parse_stmnts()
+            .expect("valid name pattern");
+        let mut scope = Scope::child(stdlib::new());
+
+        assert_eq!(evaluate_ast(&ast, &mut scope), Ok(Value::Map(map! {})));
+        assert_eq!(scope.resolve("let"), Some(Value::Int(8)));
+    }
+
+    #[test]
+    fn rejects_duplicate_destructured_names_without_partial_bindings() {
+        let ast = Parser::new("let {a, nested.{a}} = {a: 1, nested: {a: 2}}")
+            .parse_stmnts()
+            .expect("valid destructuring pattern");
+        let mut scope = Scope::child(stdlib::new());
+
+        assert_eq!(
+            evaluate_ast(&ast, &mut scope),
+            Err(EvalError::SymbolConflict("a".to_owned()))
+        );
+        assert_eq!(scope.resolve("a"), None);
     }
 
     #[test]

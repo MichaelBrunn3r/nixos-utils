@@ -15,8 +15,20 @@ pub enum Statement<'input> {
 
 #[derive(Debug, PartialEq)]
 pub struct Let<'input> {
-    pub name: &'input str,
+    pub pattern: Pattern<'input>,
     pub expr: Expr<'input>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Pattern<'input> {
+    Name(&'input str),
+    Map(Vec<MapPattern<'input>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MapPattern<'input> {
+    pub key: &'input str,
+    pub pattern: Pattern<'input>,
 }
 
 #[derive(Debug, PartialEq)]

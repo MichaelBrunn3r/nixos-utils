@@ -1,16 +1,15 @@
 #!/usr/bin/env djson
 
-let math = import("std.math")
-let assert = import("std.assert")
+let { math, assert.{ assert } } = import("std")
 
 // int
-int: assert.assert([
+int: assert([
 	1 		== 1
 	0001 	== 1
 	10_000  == 10000
 	10'000  == 10000
 ].all())
-int_methods: assert.assert([
+int_methods: assert([
 	(-42).abs()     == 42,  // absolute value
 	42.clamp(0, 10) == 10,  // constrain to a range
 	1.ln()          == 0.0, // natural logarithm
@@ -23,13 +22,13 @@ int_methods: assert.assert([
 ].all())
 
 // float
-float: assert.assert([
+float: assert([
 	1.0 			== 1.0,
 	000001.100000 	== 1.1
 	10_000.0 		== 10000.0
 	10'000.0		== 10000.0
 ].all())
-float_methods: assert.assert([
+float_methods: assert([
 	(-4.5).abs()            		== 4.5,     // absolute value
 	3.25.ceil()             		== 4,       // round up
 	42.5.clamp(0.0, 10.0)   		== 10.0,    // constrain to a range
@@ -51,10 +50,10 @@ float_methods: assert.assert([
 ].all())
 
 // string
-string: assert.assert([
+string: assert([
 	"abc" == 'abc'
 ].all())
-string_methods: assert.assert([
+string_methods: assert([
 	"héllo".len_chars()             			== 5,       	// Unicode scalar count
 	"héllo".len_bytes()             			== 6,       	// UTF-8 byte count
 	"".is_empty()                   			== true,    	// empty-value check
@@ -83,7 +82,7 @@ string_methods: assert.assert([
 ].all())
 
 // list
-list_methods: assert.assert([
+list_methods: assert([
 	[true, true].all()  == true,  // whether every element is true
 	[false, true].any() == true,  // whether any element is true
 	[].is_empty()       == true,  // empty-value check
@@ -93,7 +92,7 @@ list_methods: assert.assert([
 ].all())
 
 // map
-map_methods: assert.assert([
+map_methods: assert([
 	{b: 2, a: 1, c: 3}.equals({a: 1, b: 2, c: 3}),  	// equality ignores key order
 	{b: 2, a: 1, c: 3}.is_empty() == false,          	// empty-value check
 	{b: 2, a: 1, c: 3}.keys().equals(["a", "b", "c"]), 	// keys in sorted order

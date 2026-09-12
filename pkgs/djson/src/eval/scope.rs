@@ -45,6 +45,22 @@ impl Scope {
         Ok(())
     }
 
+    pub(crate) fn bind_values(
+        &mut self,
+        bindings: impl IntoIterator<Item = (String, Value)>,
+    ) -> Result<(), EvalError> {
+        let bindings = bindings.into_iter().collect::<Vec<_>>();
+        for (index, (name, _)) in bindings.iter().enumerate() {
+            if self.values.contains_key(name)
+                || bindings[..index].iter().any(|(other, _)| other == name)
+            {
+                return Err(EvalError::SymbolConflict(name.clone()));
+            }
+        }
+        self.values.extend(bindings);
+        Ok(())
+    }
+
     #[must_use]
     pub fn resolve(&self, name: &str) -> Option<Value> {
         self.values

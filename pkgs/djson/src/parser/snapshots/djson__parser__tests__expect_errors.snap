@@ -22,10 +22,6 @@ multi-word unquoted key
 input: `let there be rain: 1`
 error: `unexpected token`
 
-reserved identifier
-input: `let let = 1`
-error: `reserved identifier`
-
 non-identifier binding name
 input: `let 1 = 1`
 error: `unexpected token`

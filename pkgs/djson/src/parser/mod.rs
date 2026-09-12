@@ -11,7 +11,7 @@ use crate::{
         Lexer, LexerError,
         token::{Spanned, Token},
     },
-    parser::ast::{Expr, Identifier, InfixOp, KV, Let, PrefixOp, Statement},
+    parser::ast::{Expr, Identifier, InfixOp, KV, Let, MapPattern, Pattern, PrefixOp, Statement},
 };
 
 //region Parser
@@ -81,24 +81,72 @@ impl<'input> Parser<'input> {
 
     /// Parses a `let` binding statement.
     fn parse_let_stmnt(&mut self) -> ParserResult<Statement<'input>> {
-        let name = match self.next_token()? {
-            Spanned {
-                value: Token::Id(value),
-                ..
-            } if value != "let" => value,
-            Spanned {
-                value: Token::Id("let"),
-                span,
-            } => return Err(ParserError::ReservedIdentifier { span }),
-            token => return Err(Self::err_unexpected(&token, "an identifier")),
-        };
+        let pattern = self.parse_pattern()?;
         self.expect_next_token(&Token::Eq)?;
         let first = self.next_token()?;
         Ok(Statement::Let(Let {
-            name,
+            pattern,
             expr: self.parse_expr(first, 0)?,
         }))
     }
+
+    //region Parse pattern
+    fn parse_pattern(&mut self) -> ParserResult<Pattern<'input>> {
+        if self.next_is(&Token::LBrace) {
+            self.next_token()?;
+            self.parse_pattern_body()
+        } else {
+            self.parse_pattern_name()
+        }
+    }
+
+    fn parse_pattern_name(&mut self) -> ParserResult<Pattern<'input>> {
+        match self.next_token()? {
+            Spanned {
+                value: Token::Id(value),
+                ..
+            } => Ok(Pattern::Name(value)),
+            token => Err(Self::err_unexpected(&token, "an identifier or map pattern")),
+        }
+    }
+
+    fn parse_pattern_body(&mut self) -> ParserResult<Pattern<'input>> {
+        let mut patterns = Vec::new();
+        self.skip_separators()?;
+
+        while !self.next_is(&Token::RBrace) {
+            let Spanned {
+                value: Token::Id(key),
+                ..
+            } = self.next_token()?
+            else {
+                return Err(Self::err_unexpected(
+                    &Spanned {
+                        value: Token::RBrace,
+                        span: self.last_span,
+                    },
+                    "an identifier",
+                ));
+            };
+            let pattern = if self.next_is(&Token::Dot) {
+                self.next_token()?;
+                self.expect_next_token(&Token::LBrace)?;
+                self.parse_pattern_body()?
+            } else {
+                Pattern::Name(key)
+            };
+            patterns.push(MapPattern { key, pattern });
+
+            if !self.next_is(&Token::RBrace) {
+                self.expect_next_token(&Token::Sep)?;
+                self.skip_separators()?;
+            }
+        }
+
+        self.expect_next_token(&Token::RBrace)?;
+        Ok(Pattern::Map(patterns))
+    }
+    //endregion Parse pattern
     //endregion Parse statements
 
     //region Parse expression
@@ -503,13 +551,6 @@ pub enum ParserError {
         span: miette::SourceSpan,
     },
 
-    #[error("reserved identifier")]
-    #[diagnostic(code(parser::reserved_identifier))]
-    ReservedIdentifier {
-        #[label("`let` is not allowed as a binding name")]
-        span: miette::SourceSpan,
-    },
-
     #[error("invalid key")]
     #[diagnostic(code(parser::invalid_key))]
     InvalidKey {
@@ -614,7 +655,6 @@ mod tests {
             ("call expression as key", "x(): 1"),
             ("member expression as key", "x.foo(): 1"),
             ("multi-word unquoted key", "let there be rain: 1"),
-            ("reserved identifier", "let let = 1"),
             ("non-identifier binding name", "let 1 = 1"),
             ("empty expression", "()"),
         ];
@@ -628,6 +668,36 @@ mod tests {
         });
 
         assert_snapshot!(cases);
+    }
+
+    #[test]
+    fn parses_nested_destructuring_patterns() {
+        let ast = Parser::new("let {a.{b, c.{d}}} = value")
+            .parse_stmnts()
+            .expect("valid destructuring pattern");
+
+        assert_eq!(ast.pretty_string(), "[let {a.{b, c.{d}}} = value]");
+    }
+
+    #[test]
+    fn allows_let_as_a_map_pattern_name() {
+        let ast = Parser::new("let {let} = value")
+            .parse_stmnts()
+            .expect("valid destructuring pattern");
+
+        assert_eq!(ast.pretty_string(), "[let {let} = value]");
+
+        let ast = Parser::new("let {let.{let}} = value")
+            .parse_stmnts()
+            .expect("valid nested pattern");
+
+        assert_eq!(ast.pretty_string(), "[let {let.{let}} = value]");
+
+        let ast = Parser::new("let let = value")
+            .parse_stmnts()
+            .expect("valid name pattern");
+
+        assert_eq!(ast.pretty_string(), "[let let = value]");
     }
 
     #[test]
@@ -650,7 +720,6 @@ mod tests {
                   value: )
                  after: 3",
             ),
-            ("reserved identifier", "let let = 1"),
         ];
 
         let cases = fmt_snapshot_cases(cases, |(label, input)| {

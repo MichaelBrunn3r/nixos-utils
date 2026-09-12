@@ -1,6 +1,6 @@
 use std::fmt::{self, Write};
 
-use super::{AST, Expr, Identifier, InfixOp, PrefixOp, Statement};
+use super::{AST, Expr, Identifier, InfixOp, Pattern, PrefixOp, Statement};
 
 pub struct ASTPretty<'ast, 'config, 'input> {
     ast: &'ast AST<'input>,
@@ -177,9 +177,31 @@ impl Statement<'_> {
             ]),
             Self::Let(binding) => concat([
                 text("let "),
-                text(binding.name),
+                binding.pattern.pretty_doc(),
                 text(" = "),
                 binding.expr.pretty_doc(config),
+            ]),
+        }
+    }
+}
+
+impl Pattern<'_> {
+    fn pretty_doc(&self) -> Doc {
+        match self {
+            Self::Name(name) => text(*name),
+            Self::Map(patterns) => concat([
+                text("{"),
+                join(
+                    patterns.iter().map(|pattern| {
+                        if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
+                            text(pattern.key)
+                        } else {
+                            concat([text(pattern.key), text("."), pattern.pattern.pretty_doc()])
+                        }
+                    }),
+                    &text(", "),
+                ),
+                text("}"),
             ]),
         }
     }
