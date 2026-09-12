@@ -30,7 +30,7 @@ pub fn evaluate_ast(ast: &AST<'_>, scope: &mut Scope) -> Result<Value, EvalError
             Statement::Let(binding) => {
                 let value = evaluate_expr(&binding.expr, scope)?;
                 let mut bindings = Vec::new();
-                destructure(&binding.pattern, value, &mut bindings)?;
+                destructure(&binding.pattern, value, scope, &mut bindings)?;
                 scope.bind_values(bindings)?;
                 continue;
             }
@@ -65,31 +65,36 @@ pub fn evaluate_ast(ast: &AST<'_>, scope: &mut Scope) -> Result<Value, EvalError
 fn destructure(
     pattern: &Pattern<'_>,
     value: Value,
+    scope: &Scope,
     bindings: &mut Vec<(String, Value)>,
 ) -> Result<(), EvalError> {
     match pattern {
         Pattern::Name(name) => bindings.push(((*name).to_owned(), value)),
         Pattern::Map(patterns) => {
             let Value::Map(map) = value else {
-                return Err(EvalError::TypeMismatch);
+                return Err(EvalError::PatternMismatch);
             };
             for pattern in patterns {
-                let value = map
-                    .get(pattern.key)
-                    .cloned()
-                    .ok_or_else(|| EvalError::UnknownIdentifier(pattern.key.to_owned()))?;
-                destructure(&pattern.pattern, value, bindings)?;
+                let value = match map.get(pattern.key).cloned() {
+                    Some(value) => value,
+                    None => match (&pattern.pattern, &pattern.default) {
+                        (Pattern::Name(_), Some(default)) => evaluate_expr(default, scope)?,
+                        (Pattern::Map(_), None) => Value::Map(Map::new()),
+                        _ => return Err(EvalError::PatternMismatch),
+                    },
+                };
+                destructure(&pattern.pattern, value, scope, bindings)?;
             }
         }
         Pattern::List { patterns, rest } => {
             let Value::List(values) = value else {
-                return Err(EvalError::TypeMismatch);
+                return Err(EvalError::PatternMismatch);
             };
             if patterns.len() > values.len() {
-                return Err(EvalError::TypeMismatch);
+                return Err(EvalError::PatternMismatch);
             }
             for (pattern, value) in patterns.iter().zip(values.iter().cloned()) {
-                destructure(pattern, value, bindings)?;
+                destructure(pattern, value, scope, bindings)?;
             }
             if let Some(name) = rest {
                 bindings.push((
@@ -317,6 +322,7 @@ pub enum EvalError {
     MixedDocumentForms,
     MultipleExpressions,
     Overflow,
+    PatternMismatch,
     TypeMismatch,
     UnknownIdentifier(String),
     UnknownFunction(String),
@@ -435,11 +441,46 @@ mod tests {
                 ("result", Value::List(Vec::new()),)
             ])))
         );
+        assert_eq!(
+            evaluate("let {x = 1 + 2} = {y: 2}\nresult: x"),
+            Ok(Value::Map(map! { "result": 3 }))
+        );
+        assert_eq!(
+            evaluate("let {x = 10} = {x: none}\nresult: x"),
+            Ok(Value::Map(Map::from([("result", Value::None)])))
+        );
+        assert_eq!(
+            evaluate("let {x = missing} = {x: 1}\nresult: x"),
+            Ok(Value::Map(map! { "result": 1 }))
+        );
+        assert_eq!(
+            evaluate("let {a.{b.{c.{d.{e = 10}}}}} = {a: {b: {}}}\nresult: e"),
+            Ok(Value::Map(map! { "result": 10 }))
+        );
     }
 
     #[test]
     fn rejects_list_patterns_longer_than_values() {
-        assert_eq!(evaluate("let [a, b] = [1]"), Err(EvalError::TypeMismatch));
+        assert_eq!(
+            evaluate("let [a, b] = [1]"),
+            Err(EvalError::PatternMismatch)
+        );
+    }
+
+    #[test]
+    fn rejects_unmatched_patterns() {
+        assert_eq!(
+            evaluate("let {x} = {y: 1}"),
+            Err(EvalError::PatternMismatch)
+        );
+        assert_eq!(
+            evaluate("let {nested.{x}} = {nested: 1}"),
+            Err(EvalError::PatternMismatch)
+        );
+        assert_eq!(
+            evaluate("let [x] = {x: 1}"),
+            Err(EvalError::PatternMismatch)
+        );
     }
 
     #[test]

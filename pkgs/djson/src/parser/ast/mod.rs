@@ -33,6 +33,7 @@ pub enum Pattern<'input> {
 pub struct MapPattern<'input> {
     pub key: &'input str,
     pub pattern: Pattern<'input>,
+    pub default: Option<Expr<'input>>,
 }
 
 #[derive(Debug, PartialEq)]

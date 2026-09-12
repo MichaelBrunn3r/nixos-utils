@@ -14,6 +14,19 @@ checks2: [
     assert(a2 == 7),
 ]
 
+// map in list
+let [{a.{b3}}] = [{a: {b3: 1}}]
+checks3: [
+    assert(b3 == 1),
+]
+
+// list in map
+let {nested[a4]} = {nested: [1,2,3]}
+checks4: [
+    assert(a4 == 1),
+]
+
+//region Rest syntax
 // select and capture the rest
 let [a5, ..rest5] = [8, 9, 10]
 checks5: [
@@ -27,21 +40,30 @@ checks6: [
 	assert(all6.equals([11, 12, 13])),
 ]
 
-// map in list
-let [{a.{b3}}] = [{a: {b3: 1}}]
-checks3: [
-    assert(b3 == 1),
-]
-
-// list in map
-let {nested[a4]} = {nested: [1,2,3]}
-checks4: [
-    assert(a4 == 1),
-]
-
 // capture the rest of a list in a map
 let {nested[a7, ..rest7]} = {nested: [14, 15, 16]}
 checks7: [
 	assert(a7 == 14),
 	assert(rest7.equals([15, 16])),
 ]
+//endregion Rest syntax
+
+//region Default value syntax
+// default values
+let {x8 = 10} = {y: 2}
+checks8: [
+	assert(x8 == 10),
+]
+
+// defaults only apply to missing entries
+let {x9 = 10} = {x9: none}
+checks9: [
+	assert(x9 == none),
+]
+
+// defaults can reach through missing nested maps
+let {a.{b.{c.{d.{e10 = 10}}}}} = {a: {b: {}}}
+checks10: [
+	assert(e10 == 10),
+]
+//endregion Default value syntax

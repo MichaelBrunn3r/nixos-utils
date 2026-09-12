@@ -177,7 +177,7 @@ impl Statement<'_> {
             ]),
             Self::Let(binding) => concat([
                 text("let "),
-                binding.pattern.pretty_doc(),
+                binding.pattern.pretty_doc(config),
                 text(" = "),
                 binding.expr.pretty_doc(config),
             ]),
@@ -186,19 +186,29 @@ impl Statement<'_> {
 }
 
 impl Pattern<'_> {
-    fn pretty_doc(&self) -> Doc {
+    fn pretty_doc(&self, config: &ASTPrettyConfig) -> Doc {
         match self {
             Self::Name(name) => text(*name),
             Self::Map(patterns) => concat([
                 text("{"),
                 join(
                     patterns.iter().map(|pattern| {
-                        if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
+                        if let Some(default) = &pattern.default {
+                            concat([
+                                text(pattern.key),
+                                text(" = "),
+                                default.pretty_doc(config),
+                            ])
+                        } else if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
                             text(pattern.key)
                         } else if matches!(&pattern.pattern, Pattern::List { .. }) {
-                            concat([text(pattern.key), pattern.pattern.pretty_doc()])
+                            concat([text(pattern.key), pattern.pattern.pretty_doc(config)])
                         } else {
-                            concat([text(pattern.key), text("."), pattern.pattern.pretty_doc()])
+                            concat([
+                                text(pattern.key),
+                                text("."),
+                                pattern.pattern.pretty_doc(config),
+                            ])
                         }
                     }),
                     &text(", "),
@@ -210,7 +220,7 @@ impl Pattern<'_> {
                 join(
                     patterns
                         .iter()
-                        .map(Self::pretty_doc)
+                        .map(|pattern| pattern.pretty_doc(config))
                         .chain(rest.iter().map(|name| concat([text(".."), text(*name)]))),
                     &text(", "),
                 ),

@@ -163,16 +163,24 @@ impl<'input> Parser<'input> {
                     "an identifier",
                 ));
             };
-            let pattern = if self.next_is(&Token::LBracket) {
-                self.parse_pattern()?
+            let (pattern, default) = if self.next_is(&Token::Eq) {
+                self.next_token()?;
+                let first = self.next_token()?;
+                (Pattern::Name(key), Some(self.parse_expr(first, 0)?))
+            } else if self.next_is(&Token::LBracket) {
+                (self.parse_pattern()?, None)
             } else if self.next_is(&Token::Dot) {
                 self.next_token()?;
                 self.expect_next_token(&Token::LBrace)?;
-                self.parse_pattern_body()?
+                (self.parse_pattern_body()?, None)
             } else {
-                Pattern::Name(key)
+                (Pattern::Name(key), None)
             };
-            patterns.push(MapPattern { key, pattern });
+            patterns.push(MapPattern {
+                key,
+                pattern,
+                default,
+            });
 
             if !self.next_is(&Token::RBrace) {
                 self.expect_next_token(&Token::Sep)?;
@@ -394,6 +402,24 @@ mod tests {
             .expect("valid list rest pattern");
 
         assert_eq!(ast.pretty_string(), "[let [a, ..rest] = value]");
+    }
+
+    #[test]
+    fn parses_default_patterns() {
+        let ast = Parser::new("let {x = 10} = value")
+            .parse_stmnts()
+            .expect("valid default pattern");
+
+        assert_eq!(ast.pretty_string(), "[let {x = 10} = value]");
+
+        let ast = Parser::new("let {a.{b.{c.{d.{e = 10}}}}} = value")
+            .parse_stmnts()
+            .expect("valid nested default pattern");
+
+        assert_eq!(
+            ast.pretty_string(),
+            "[let {a.{b.{c.{d.{e = 10}}}}} = value]"
+        );
     }
 
     #[test]
