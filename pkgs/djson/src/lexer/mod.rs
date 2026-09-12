@@ -289,7 +289,14 @@ impl<'input> Iterator for Lexer<'input> {
             ']' => Token::RBracket,
             '{' => Token::LBrace,
             '}' => Token::RBrace,
-            '.' => Token::Dot,
+            '.' => {
+                if self.starts_with("..") {
+                    self.eat();
+                    Token::DotDot
+                } else {
+                    Token::Dot
+                }
+            }
             '+' => Token::Add,
             '-' => Token::Sub,
             '^' => Token::Exp,

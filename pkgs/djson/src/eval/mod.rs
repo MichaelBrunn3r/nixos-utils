@@ -81,15 +81,21 @@ fn destructure(
                 destructure(&pattern.pattern, value, bindings)?;
             }
         }
-        Pattern::List(patterns) => {
+        Pattern::List { patterns, rest } => {
             let Value::List(values) = value else {
                 return Err(EvalError::TypeMismatch);
             };
             if patterns.len() > values.len() {
                 return Err(EvalError::TypeMismatch);
             }
-            for (pattern, value) in patterns.iter().zip(values) {
+            for (pattern, value) in patterns.iter().zip(values.iter().cloned()) {
                 destructure(pattern, value, bindings)?;
+            }
+            if let Some(name) = rest {
+                bindings.push((
+                    (*name).to_owned(),
+                    Value::List(values.into_iter().skip(patterns.len()).collect()),
+                ));
             }
         }
     }
@@ -408,6 +414,26 @@ mod tests {
         assert_eq!(
             evaluate("let [a] = [1, 2, 3]\nresult: a"),
             Ok(Value::Map(map! { "result": 1 }))
+        );
+        assert_eq!(
+            evaluate("let [a, ..rest] = [1, 2, 3]\nresult: rest"),
+            Ok(Value::Map(Map::from([(
+                "result",
+                Value::List(vec![value!(2), value!(3)]),
+            )])))
+        );
+        assert_eq!(
+            evaluate("let [..values] = [1, 2]\nresult: values"),
+            Ok(Value::Map(Map::from([(
+                "result",
+                Value::List(vec![value!(1), value!(2)]),
+            )])))
+        );
+        assert_eq!(
+            evaluate("let [a, ..rest] = [1]\nresult: rest"),
+            Ok(Value::Map(Map::from([
+                ("result", Value::List(Vec::new()),)
+            ])))
         );
     }
 

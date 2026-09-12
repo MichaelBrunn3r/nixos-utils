@@ -1,5 +1,6 @@
 let { assert } = import("std.assert")
 
+// select all
 let [a1,b1,c1] = [1,"2",3]
 checks1: [
 	assert(a1 == 1),
@@ -7,7 +8,40 @@ checks1: [
 	assert(c1 == 3),
 ]
 
+// select subset
 let [a2] = [7,6,5,4,3,2,1]
 checks2: [
     assert(a2 == 7),
+]
+
+// select and capture the rest
+let [a5, ..rest5] = [8, 9, 10]
+checks5: [
+	assert(a5 == 8),
+	assert(rest5.equals([9, 10])),
+]
+
+// capture the whole list
+let [..all6] = [11, 12, 13]
+checks6: [
+	assert(all6.equals([11, 12, 13])),
+]
+
+// map in list
+let [{a.{b3}}] = [{a: {b3: 1}}]
+checks3: [
+    assert(b3 == 1),
+]
+
+// list in map
+let {nested[a4]} = {nested: [1,2,3]}
+checks4: [
+    assert(a4 == 1),
+]
+
+// capture the rest of a list in a map
+let {nested[a7, ..rest7]} = {nested: [14, 15, 16]}
+checks7: [
+	assert(a7 == 14),
+	assert(rest7.equals([15, 16])),
 ]

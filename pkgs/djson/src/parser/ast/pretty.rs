@@ -195,6 +195,8 @@ impl Pattern<'_> {
                     patterns.iter().map(|pattern| {
                         if matches!(&pattern.pattern, Pattern::Name(name) if *name == pattern.key) {
                             text(pattern.key)
+                        } else if matches!(&pattern.pattern, Pattern::List { .. }) {
+                            concat([text(pattern.key), pattern.pattern.pretty_doc()])
                         } else {
                             concat([text(pattern.key), text("."), pattern.pattern.pretty_doc()])
                         }
@@ -203,9 +205,15 @@ impl Pattern<'_> {
                 ),
                 text("}"),
             ]),
-            Self::List(patterns) => concat([
+            Self::List { patterns, rest } => concat([
                 text("["),
-                join(patterns.iter().map(Self::pretty_doc), &text(", ")),
+                join(
+                    patterns
+                        .iter()
+                        .map(Self::pretty_doc)
+                        .chain(rest.iter().map(|name| concat([text(".."), text(*name)]))),
+                    &text(", "),
+                ),
                 text("]"),
             ]),
         }

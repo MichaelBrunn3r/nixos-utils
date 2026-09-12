@@ -30,6 +30,7 @@ pub enum Token<'a> {
     Sep,
     Colon,
     Dot,
+    DotDot,
 
     // Delimiters
     LParen,

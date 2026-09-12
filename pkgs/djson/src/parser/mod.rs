@@ -107,9 +107,22 @@ impl<'input> Parser<'input> {
 
     fn parse_pattern_list(&mut self) -> ParserResult<Pattern<'input>> {
         let mut patterns = Vec::new();
+        let mut rest = None;
         self.skip_separators()?;
 
         while !self.next_is(&Token::RBracket) {
+            if self.next_is(&Token::DotDot) {
+                self.next_token()?;
+                rest = Some(match self.next_token()? {
+                    Spanned {
+                        value: Token::Id(value),
+                        ..
+                    } => value,
+                    token => return Err(Self::err_unexpected(&token, "an identifier")),
+                });
+                break;
+            }
+
             patterns.push(self.parse_pattern()?);
 
             if !self.next_is(&Token::RBracket) {
@@ -119,7 +132,7 @@ impl<'input> Parser<'input> {
         }
 
         self.expect_next_token(&Token::RBracket)?;
-        Ok(Pattern::List(patterns))
+        Ok(Pattern::List { patterns, rest })
     }
 
     fn parse_pattern_name(&mut self) -> ParserResult<Pattern<'input>> {
@@ -150,7 +163,9 @@ impl<'input> Parser<'input> {
                     "an identifier",
                 ));
             };
-            let pattern = if self.next_is(&Token::Dot) {
+            let pattern = if self.next_is(&Token::LBracket) {
+                self.parse_pattern()?
+            } else if self.next_is(&Token::Dot) {
                 self.next_token()?;
                 self.expect_next_token(&Token::LBrace)?;
                 self.parse_pattern_body()?
@@ -367,6 +382,18 @@ mod tests {
             .expect("valid list destructuring pattern");
 
         assert_eq!(ast.pretty_string(), "[let [a, b] = value]");
+
+        let ast = Parser::new("let {nested[a]} = value")
+            .parse_stmnts()
+            .expect("valid list pattern nested in a map pattern");
+
+        assert_eq!(ast.pretty_string(), "[let {nested[a]} = value]");
+
+        let ast = Parser::new("let [a, ..rest] = value")
+            .parse_stmnts()
+            .expect("valid list rest pattern");
+
+        assert_eq!(ast.pretty_string(), "[let [a, ..rest] = value]");
     }
 
     #[test]
