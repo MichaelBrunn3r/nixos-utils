@@ -23,6 +23,7 @@ pub struct Let<'input> {
 pub enum Pattern<'input> {
     Name(&'input str),
     Map(Vec<MapPattern<'input>>),
+    List(Vec<Self>),
 }
 
 #[derive(Debug, PartialEq)]

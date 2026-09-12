@@ -81,6 +81,17 @@ fn destructure(
                 destructure(&pattern.pattern, value, bindings)?;
             }
         }
+        Pattern::List(patterns) => {
+            let Value::List(values) = value else {
+                return Err(EvalError::TypeMismatch);
+            };
+            if patterns.len() > values.len() {
+                return Err(EvalError::TypeMismatch);
+            }
+            for (pattern, value) in patterns.iter().zip(values) {
+                destructure(pattern, value, bindings)?;
+            }
+        }
     }
     Ok(())
 }
@@ -390,6 +401,19 @@ mod tests {
             evaluate("let {assert} = import(\"std.assert\")\nassert(true)"),
             Ok(Value::Bool(true))
         );
+        assert_eq!(
+            evaluate("let [a, b] = [1, 2]\nresult: a + b"),
+            Ok(Value::Map(map! { "result": 3 }))
+        );
+        assert_eq!(
+            evaluate("let [a] = [1, 2, 3]\nresult: a"),
+            Ok(Value::Map(map! { "result": 1 }))
+        );
+    }
+
+    #[test]
+    fn rejects_list_patterns_longer_than_values() {
+        assert_eq!(evaluate("let [a, b] = [1]"), Err(EvalError::TypeMismatch));
     }
 
     #[test]

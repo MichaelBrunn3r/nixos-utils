@@ -1,0 +1,13 @@
+let { assert } = import("std.assert")
+
+let [a1,b1,c1] = [1,"2",3]
+checks1: [
+	assert(a1 == 1),
+	assert(b1 == "2"),
+	assert(c1 == 3),
+]
+
+let [a2] = [7,6,5,4,3,2,1]
+checks2: [
+    assert(a2 == 7),
+]

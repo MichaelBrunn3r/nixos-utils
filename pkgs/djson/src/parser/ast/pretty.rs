@@ -203,6 +203,11 @@ impl Pattern<'_> {
                 ),
                 text("}"),
             ]),
+            Self::List(patterns) => concat([
+                text("["),
+                join(patterns.iter().map(Self::pretty_doc), &text(", ")),
+                text("]"),
+            ]),
         }
     }
 }

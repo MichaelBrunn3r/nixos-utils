@@ -97,9 +97,29 @@ impl<'input> Parser<'input> {
         if self.next_is(&Token::LBrace) {
             self.next_token()?;
             self.parse_pattern_body()
+        } else if self.next_is(&Token::LBracket) {
+            self.next_token()?;
+            self.parse_pattern_list()
         } else {
             self.parse_pattern_name()
         }
+    }
+
+    fn parse_pattern_list(&mut self) -> ParserResult<Pattern<'input>> {
+        let mut patterns = Vec::new();
+        self.skip_separators()?;
+
+        while !self.next_is(&Token::RBracket) {
+            patterns.push(self.parse_pattern()?);
+
+            if !self.next_is(&Token::RBracket) {
+                self.expect_next_token(&Token::Sep)?;
+                self.skip_separators()?;
+            }
+        }
+
+        self.expect_next_token(&Token::RBracket)?;
+        Ok(Pattern::List(patterns))
     }
 
     fn parse_pattern_name(&mut self) -> ParserResult<Pattern<'input>> {
@@ -338,6 +358,15 @@ mod tests {
             .expect("valid destructuring pattern");
 
         assert_eq!(ast.pretty_string(), "[let {a.{b, c.{d}}} = value]");
+    }
+
+    #[test]
+    fn parses_list_destructuring_patterns() {
+        let ast = Parser::new("let [a, b] = value")
+            .parse_stmnts()
+            .expect("valid list destructuring pattern");
+
+        assert_eq!(ast.pretty_string(), "[let [a, b] = value]");
     }
 
     #[test]
